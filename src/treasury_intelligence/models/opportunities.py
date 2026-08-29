@@ -15,8 +15,13 @@ class Instrument:
     currency: str
     yield_source: str
 
+    issuer: str | None = None
+
     isin: str | None = None
     contract_address: str | None = None
+
+    maturity_date: str | None = None
+    coupon_type: str | None = None
 
     replication: str | None = None
     income_treatment: str | None = None
@@ -90,7 +95,14 @@ class OpportunitySnapshot:
     fund_aum_eur: float | None = None
     share_class_aum_eur: float | None = None
 
+    outstanding_amount_eur: float | None = None
+
     holdings_count: int | None = None
+
+    price_status: str | None = None
+    quote_firmness: str | None = None
+
+    early_exit_possible: bool | None = None
 
     source: str | None = None
     source_url: str | None = None
