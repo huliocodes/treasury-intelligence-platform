@@ -1,131 +1,423 @@
 from __future__ import annotations
 
+from treasury_intelligence.models.economics import (
+    EconomicsEvidenceAssessment,
+)
+
+from treasury_intelligence.models.eligibility import (
+    EligibilityResult,
+)
+
 from treasury_intelligence.models.portfolio import (
     PortfolioCandidateAssessment,
 )
 
+from treasury_intelligence.models.position_risk import (
+    PositionRiskAssessment,
+)
 
-def build_portfolio_candidate_assessment(
+from treasury_intelligence.models.returns import (
+    ReturnAnalysis,
+)
+
+from treasury_intelligence.models.risk_assessments import (
+    RiskAssessment,
+)
+
+
+def _validate_entity_alignment(
+    eligibility: EligibilityResult,
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
+    position_risk_assessments: tuple[
+        PositionRiskAssessment,
+        ...
+    ],
+    economics: EconomicsEvidenceAssessment,
+    return_analysis: ReturnAnalysis,
+) -> None:
+    instrument_id = eligibility.instrument_id
+    market_id = eligibility.market_id
+    access_route_id = eligibility.access_route_id
+    position_size_eur = (
+        eligibility.position_size_eur
+    )
+
+    for assessment in risk_assessments:
+        if (
+            assessment.instrument_id
+            != instrument_id
+        ):
+            raise ValueError(
+                "Risk assessment instrument does not "
+                "match eligibility result."
+            )
+
+        if (
+            assessment.market_id
+            != market_id
+        ):
+            raise ValueError(
+                "Risk assessment market does not match "
+                "eligibility result."
+            )
+
+    for assessment in (
+        position_risk_assessments
+    ):
+        if (
+            assessment.instrument_id
+            != instrument_id
+        ):
+            raise ValueError(
+                "Position-risk instrument does not "
+                "match eligibility result."
+            )
+
+        if (
+            assessment.market_id
+            != market_id
+        ):
+            raise ValueError(
+                "Position-risk market does not match "
+                "eligibility result."
+            )
+
+        if (
+            assessment.access_route_id
+            != access_route_id
+        ):
+            raise ValueError(
+                "Position-risk access route does not "
+                "match eligibility result."
+            )
+
+        if (
+            assessment.position_size_eur
+            != position_size_eur
+        ):
+            raise ValueError(
+                "Position-risk position size does not "
+                "match eligibility result."
+            )
+
+    if (
+        economics.instrument_id
+        != instrument_id
+    ):
+        raise ValueError(
+            "Economics assessment instrument does not "
+            "match eligibility result."
+        )
+
+    if (
+        economics.market_id
+        != market_id
+    ):
+        raise ValueError(
+            "Economics assessment market does not "
+            "match eligibility result."
+        )
+
+    if (
+        economics.access_route_id
+        != access_route_id
+    ):
+        raise ValueError(
+            "Economics assessment access route does not "
+            "match eligibility result."
+        )
+
+    if (
+        economics.position_size_eur
+        != position_size_eur
+    ):
+        raise ValueError(
+            "Economics assessment position size does not "
+            "match eligibility result."
+        )
+
+    if (
+        return_analysis.instrument_id
+        != instrument_id
+    ):
+        raise ValueError(
+            "Return analysis instrument does not match "
+            "eligibility result."
+        )
+
+    if (
+        return_analysis.market_id
+        != market_id
+    ):
+        raise ValueError(
+            "Return analysis market does not match "
+            "eligibility result."
+        )
+
+    if (
+        return_analysis.access_route_id
+        != access_route_id
+    ):
+        raise ValueError(
+            "Return analysis access route does not match "
+            "eligibility result."
+        )
+
+    if (
+        return_analysis.position_size_eur
+        != position_size_eur
+    ):
+        raise ValueError(
+            "Return analysis position size does not match "
+            "eligibility result."
+        )
+
+    if (
+        economics.return_analysis_id
+        != return_analysis.analysis_id
+    ):
+        raise ValueError(
+            "Economics assessment does not reference "
+            "the supplied return analysis."
+        )
+
+
+def _unknown_base_risk_count(
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
+) -> int:
+    return sum(
+        1
+        for assessment in risk_assessments
+        if assessment.risk_level == "unknown"
+    )
+
+
+def _liquidity_position_risk(
+    position_risk_assessments: tuple[
+        PositionRiskAssessment,
+        ...
+    ],
+) -> PositionRiskAssessment:
+    matches = tuple(
+        assessment
+        for assessment in (
+            position_risk_assessments
+        )
+        if assessment.risk_dimension
+        == "liquidity"
+    )
+
+    if len(matches) != 1:
+        raise ValueError(
+            "Expected exactly one liquidity "
+            "position-risk assessment."
+        )
+
+    return matches[0]
+
+
+def _eligibility_blocking_reasons(
+    eligibility: EligibilityResult,
+    excluded_check_names: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    return tuple(
+        check.reason
+        or (
+            f"Required eligibility check "
+            f"'{check.check_name}' failed."
+        )
+        for check in eligibility.checks
+        if (
+            check.required
+            and check.status == "fail"
+            and check.check_name
+            not in excluded_check_names
+        )
+    )
+
+
+def _eligibility_evidence_requirements(
+    eligibility: EligibilityResult,
+    excluded_check_names: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    return tuple(
+        check.reason
+        or (
+            f"Required eligibility check "
+            f"'{check.check_name}' remains unknown."
+        )
+        for check in eligibility.checks
+        if (
+            check.required
+            and check.status == "unknown"
+            and check.check_name
+            not in excluded_check_names
+        )
+    )
+
+
+def _economics_evidence_requirements(
+    economics: EconomicsEvidenceAssessment,
+) -> tuple[str, ...]:
+    return tuple(
+        gap.required_evidence
+        for gap in economics.evidence_gaps
+        if gap.blocking
+    )
+
+
+def _defensible_return(
+    return_analysis: ReturnAnalysis,
+) -> tuple[
+    float | None,
+    str | None,
+]:
+    if (
+        return_analysis
+        .realistic_expected_return_pct
+        is not None
+    ):
+        return (
+            return_analysis
+            .realistic_expected_return_pct,
+            (
+                "Realistic expected return with all "
+                "modeled blocking economics resolved."
+            ),
+        )
+
+    if (
+        return_analysis
+        .return_after_known_costs_pct
+        is not None
+    ):
+        return (
+            return_analysis
+            .return_after_known_costs_pct,
+            (
+                "Return after currently known costs. "
+                "This is not a realistic expected return "
+                "while blocking economics remain unknown."
+            ),
+        )
+
+    if (
+        return_analysis.reference_yield_pct
+        is not None
+    ):
+        return (
+            return_analysis.reference_yield_pct,
+            (
+                "Reference yield before unresolved "
+                "economic frictions."
+            ),
+        )
+
+    return (
+        None,
+        None,
+    )
+
+
+def build_integrated_portfolio_candidate(
     assessment_id: str,
-    mandate_id: str,
-    instrument_id: str,
-    market_id: str,
-    access_route_id: str,
     label: str,
-    position_size_eur: float,
-    eligibility_status: str,
-    liquidity_position_status: str,
-    economics_status: str,
-    base_risk_unknown_dimension_count: int,
-    defensible_return_pct: float | None,
-    defensible_return_measure: str | None,
-    blocking_reasons: tuple[str, ...] = (),
-    evidence_requirements: tuple[str, ...] = (),
+    eligibility: EligibilityResult,
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
+    position_risk_assessments: tuple[
+        PositionRiskAssessment,
+        ...
+    ],
+    economics: EconomicsEvidenceAssessment,
+    return_analysis: ReturnAnalysis,
     notes: str | None = None,
 ) -> PortfolioCandidateAssessment:
-    if position_size_eur <= 0:
-        raise ValueError(
-            "position_size_eur must be greater than zero."
+    _validate_entity_alignment(
+        eligibility=eligibility,
+        risk_assessments=risk_assessments,
+        position_risk_assessments=(
+            position_risk_assessments
+        ),
+        economics=economics,
+        return_analysis=return_analysis,
+    )
+
+    liquidity_risk = (
+        _liquidity_position_risk(
+            position_risk_assessments
         )
-
-    final_blocking_reasons = list(
-        blocking_reasons
     )
 
-    final_evidence_requirements = list(
-        evidence_requirements
+    excluded_eligibility_checks = (
+        "immediate_liquidity",
     )
 
-    has_supplied_blocking_reasons = bool(
-        final_blocking_reasons
-    )
-
-    has_supplied_evidence_requirements = bool(
-        final_evidence_requirements
-    )
-
-    if eligibility_status == "ineligible":
-        if not has_supplied_blocking_reasons:
-            final_blocking_reasons.append(
-                "The modeled position fails one or more "
-                "required treasury-mandate eligibility "
-                "checks."
-            )
-
-    elif eligibility_status == "needs_evidence":
-        if not has_supplied_evidence_requirements:
-            final_evidence_requirements.append(
-                "Resolve the required eligibility evidence "
-                "gaps before portfolio recommendation."
-            )
-
-    elif eligibility_status != "eligible":
-        raise ValueError(
-            "Unsupported eligibility status: "
-            f"{eligibility_status}"
+    blocking_reasons = list(
+        _eligibility_blocking_reasons(
+            eligibility=eligibility,
+            excluded_check_names=(
+                excluded_eligibility_checks
+            ),
         )
+    )
 
-    if liquidity_position_status == "not_supported":
-        if not has_supplied_blocking_reasons:
-            final_blocking_reasons.append(
-                "Direct position-size evidence shows that "
-                "the modeled immediate-liquidity requirement "
-                "is not currently supported."
-            )
+    evidence_requirements = list(
+        _eligibility_evidence_requirements(
+            eligibility=eligibility,
+            excluded_check_names=(
+                excluded_eligibility_checks
+            ),
+        )
+    )
 
-    elif liquidity_position_status == "unknown":
-        if not has_supplied_evidence_requirements:
-            final_evidence_requirements.append(
-                "Obtain position-size liquidity evidence "
-                "sufficient to establish whether the modeled "
-                "position can satisfy the mandate."
-            )
-
-    elif liquidity_position_status in (
-        "supported",
-        "not_position_sensitive",
+    if (
+        liquidity_risk.position_risk_status
+        == "not_supported"
     ):
-        pass
-
-    else:
-        raise ValueError(
-            "Unsupported liquidity position status: "
-            f"{liquidity_position_status}"
+        blocking_reasons.append(
+            liquidity_risk.rationale
         )
 
-    if economics_status == "incomplete":
-        if not has_supplied_evidence_requirements:
-            final_evidence_requirements.append(
-                "Resolve blocking return-cost evidence gaps "
-                "before claiming a realistic expected return."
-            )
-
-    elif economics_status == "complete":
-        pass
-
-    else:
-        raise ValueError(
-            "Unsupported economics status: "
-            f"{economics_status}"
+    elif (
+        liquidity_risk.position_risk_status
+        == "unknown"
+    ):
+        evidence_requirements.append(
+            liquidity_risk.rationale
         )
 
-    final_blocking_reasons = tuple(
-        dict.fromkeys(
-            final_blocking_reasons
+    evidence_requirements.extend(
+        _economics_evidence_requirements(
+            economics
         )
     )
 
-    final_evidence_requirements = tuple(
+    blocking_reasons = tuple(
         dict.fromkeys(
-            final_evidence_requirements
+            blocking_reasons
         )
     )
 
-    if final_blocking_reasons:
+    evidence_requirements = tuple(
+        dict.fromkeys(
+            evidence_requirements
+        )
+    )
+
+    if blocking_reasons:
         candidate_status = "blocked"
         recommendation_ready = False
 
-    elif final_evidence_requirements:
+    elif evidence_requirements:
         candidate_status = "needs_evidence"
         recommendation_ready = False
 
@@ -135,21 +427,38 @@ def build_portfolio_candidate_assessment(
         )
         recommendation_ready = True
 
+    (
+        defensible_return_pct,
+        defensible_return_measure,
+    ) = _defensible_return(
+        return_analysis
+    )
+
     return PortfolioCandidateAssessment(
         assessment_id=assessment_id,
-        mandate_id=mandate_id,
-        instrument_id=instrument_id,
-        market_id=market_id,
-        access_route_id=access_route_id,
-        label=label,
-        position_size_eur=position_size_eur,
-        eligibility_status=eligibility_status,
-        liquidity_position_status=(
-            liquidity_position_status
+        mandate_id=eligibility.mandate_id,
+        instrument_id=eligibility.instrument_id,
+        market_id=eligibility.market_id,
+        access_route_id=(
+            eligibility.access_route_id
         ),
-        economics_status=economics_status,
+        label=label,
+        position_size_eur=(
+            eligibility.position_size_eur
+        ),
+        eligibility_status=(
+            eligibility.overall_status
+        ),
+        liquidity_position_status=(
+            liquidity_risk.position_risk_status
+        ),
+        economics_status=(
+            economics.economics_status
+        ),
         base_risk_unknown_dimension_count=(
-            base_risk_unknown_dimension_count
+            _unknown_base_risk_count(
+                risk_assessments
+            )
         ),
         defensible_return_pct=(
             defensible_return_pct
@@ -157,12 +466,14 @@ def build_portfolio_candidate_assessment(
         defensible_return_measure=(
             defensible_return_measure
         ),
-        candidate_status=candidate_status,
+        candidate_status=(
+            candidate_status
+        ),
         blocking_reasons=(
-            final_blocking_reasons
+            blocking_reasons
         ),
         evidence_requirements=(
-            final_evidence_requirements
+            evidence_requirements
         ),
         recommendation_ready=(
             recommendation_ready
