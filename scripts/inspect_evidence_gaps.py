@@ -21,6 +21,10 @@ from treasury_intelligence.analytics.evidence import (
     build_evidence_gaps,
 )
 
+from treasury_intelligence.analytics.liquidity import (
+    assess_liquidity_evidence,
+)
+
 from treasury_intelligence.analytics.positions import (
     build_aave_position_analysis,
     build_btf_position_analysis,
@@ -74,9 +78,13 @@ POSITION_SIZE_EUR = 5_000_000
 def print_gaps(
     label: str,
     eligibility,
+    liquidity_assessment=None,
 ) -> None:
     gaps = build_evidence_gaps(
-        eligibility
+        eligibility=eligibility,
+        liquidity_assessment=(
+            liquidity_assessment
+        ),
     )
 
     print(label)
@@ -114,6 +122,30 @@ def print_gaps(
             f"{gap.priority}"
         )
 
+        if (
+            gap.current_evidence_level
+            is not None
+        ):
+            print(
+                f"  Current level:      "
+                f"{gap.current_evidence_level}"
+            )
+
+        if (
+            gap.required_evidence_level
+            is not None
+        ):
+            print(
+                f"  Required level:     "
+                f"{gap.required_evidence_level}"
+            )
+
+        if gap.evidence_level_gap is not None:
+            print(
+                f"  Evidence gap:       "
+                f"{gap.evidence_level_gap} level(s)"
+            )
+
         print(
             f"  Required evidence:  "
             f"{gap.required_evidence}"
@@ -123,6 +155,12 @@ def print_gaps(
             f"  Next action:        "
             f"{gap.resolution_action}"
         )
+
+        if gap.notes is not None:
+            print(
+                f"  Current evidence:   "
+                f"{gap.notes}"
+            )
 
     print()
 
@@ -184,6 +222,11 @@ def main() -> None:
         position_size_eur=POSITION_SIZE_EUR,
     )
 
+    aave_liquidity = assess_liquidity_evidence(
+        market_observation=None,
+        position=aave_position,
+    )
+
     aave_eligibility = evaluate_eligibility(
         mandate=mandate,
         instrument=(
@@ -197,8 +240,9 @@ def main() -> None:
     )
 
     print_gaps(
-        "AAVE EURC",
-        aave_eligibility,
+        label="AAVE EURC",
+        eligibility=aave_eligibility,
+        liquidity_assessment=aave_liquidity,
     )
 
     btf_position = build_btf_position_analysis(
@@ -212,6 +256,13 @@ def main() -> None:
         ),
     )
 
+    btf_liquidity = assess_liquidity_evidence(
+        market_observation=(
+            btf_market_observation
+        ),
+        position=btf_position,
+    )
+
     btf_eligibility = evaluate_eligibility(
         mandate=mandate,
         instrument=BTF_2027_03_10,
@@ -223,8 +274,9 @@ def main() -> None:
     )
 
     print_gaps(
-        "FRENCH BTF",
-        btf_eligibility,
+        label="FRENCH BTF",
+        eligibility=btf_eligibility,
+        liquidity_assessment=btf_liquidity,
     )
 
     xeon_position = build_xeon_position_analysis(
@@ -233,6 +285,13 @@ def main() -> None:
         market_observation=(
             xeon_market_observation
         ),
+    )
+
+    xeon_liquidity = assess_liquidity_evidence(
+        market_observation=(
+            xeon_market_observation
+        ),
+        position=xeon_position,
     )
 
     xeon_eligibility = evaluate_eligibility(
@@ -244,8 +303,9 @@ def main() -> None:
     )
 
     print_gaps(
-        "XEON",
-        xeon_eligibility,
+        label="XEON",
+        eligibility=xeon_eligibility,
+        liquidity_assessment=xeon_liquidity,
     )
 
     ernx_position = build_ernx_position_analysis(
@@ -254,6 +314,13 @@ def main() -> None:
         market_observation=(
             ernx_market_observation
         ),
+    )
+
+    ernx_liquidity = assess_liquidity_evidence(
+        market_observation=(
+            ernx_market_observation
+        ),
+        position=ernx_position,
     )
 
     ernx_eligibility = evaluate_eligibility(
@@ -265,8 +332,9 @@ def main() -> None:
     )
 
     print_gaps(
-        "ERNX",
-        ernx_eligibility,
+        label="ERNX",
+        eligibility=ernx_eligibility,
+        liquidity_assessment=ernx_liquidity,
     )
 
 

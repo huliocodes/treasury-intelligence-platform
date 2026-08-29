@@ -16,15 +16,18 @@ class EvidenceGap:
     position_size_eur: float
 
     check_name: str
-
     evidence_type: str
+
     priority: str
-
     current_status: str
-    required_evidence: str
 
+    required_evidence: str
     resolution_action: str
 
     blocking: bool
+
+    current_evidence_level: str | None = None
+    required_evidence_level: str | None = None
+    evidence_level_gap: int | None = None
 
     notes: str | None = None
