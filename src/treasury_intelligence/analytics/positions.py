@@ -20,6 +20,18 @@ from treasury_intelligence.sources.france import (
     BTF_2027_03_10_MARKET,
 )
 
+from treasury_intelligence.sources.ishares import (
+    ERNX_IBKR_ACCESS,
+    ERNX_INSTRUMENT,
+    ERNX_MARKET,
+)
+
+from treasury_intelligence.sources.xtrackers import (
+    XEON_IBKR_ACCESS,
+    XEON_INSTRUMENT,
+    XEON_MARKET,
+)
+
 
 def build_aave_position_analysis(
     observation: AaveReserveObservation,
@@ -143,6 +155,100 @@ def build_btf_position_analysis(
         executable_economics_known=(
             executable_economics_known
         ),
+        rejection_reason=None,
+        notes=notes,
+    )
+
+
+def build_xeon_position_analysis(
+    snapshot: OpportunitySnapshot,
+    position_size_eur: float,
+) -> PositionAnalysis:
+    position_pct_of_market = None
+
+    if snapshot.fund_aum_eur:
+        position_pct_of_market = (
+            position_size_eur
+            / snapshot.fund_aum_eur
+            * 100
+        )
+
+    notes = (
+        "Fund AUM provides scale context only. "
+        "It does not prove exchange order-book depth, "
+        "market-maker capacity, spread, slippage or "
+        "immediate exit liquidity for the proposed position."
+    )
+
+    return PositionAnalysis(
+        analysis_id=(
+            f"xeon_xetra_"
+            f"{int(position_size_eur)}"
+        ),
+        instrument_id=XEON_INSTRUMENT.instrument_id,
+        market_id=XEON_MARKET.market_id,
+        access_route_id=(
+            XEON_IBKR_ACCESS.access_route_id
+        ),
+        position_size_eur=position_size_eur,
+        entry_supported=None,
+        immediate_exit_supported=None,
+        remaining_entry_capacity_eur=None,
+        immediate_exit_coverage_pct=None,
+        position_pct_of_market=position_pct_of_market,
+        position_pct_reference="fund_aum",
+        reference_yield_pct=snapshot.yield_value_pct,
+        executable_yield_pct=None,
+        position_adjusted_yield_pct=None,
+        executable_economics_known=False,
+        rejection_reason=None,
+        notes=notes,
+    )
+
+
+def build_ernx_position_analysis(
+    snapshot: OpportunitySnapshot,
+    position_size_eur: float,
+) -> PositionAnalysis:
+    position_pct_of_market = None
+
+    if snapshot.share_class_aum_eur:
+        position_pct_of_market = (
+            position_size_eur
+            / snapshot.share_class_aum_eur
+            * 100
+        )
+
+    notes = (
+        "Share-class AUM provides scale context only. "
+        "It does not prove exchange order-book depth, "
+        "market-maker capacity, spread, slippage or "
+        "immediate exit liquidity for the proposed position. "
+        "Weighted-average YTM is a portfolio characteristic, "
+        "not an executable or guaranteed return."
+    )
+
+    return PositionAnalysis(
+        analysis_id=(
+            f"ernx_xetra_"
+            f"{int(position_size_eur)}"
+        ),
+        instrument_id=ERNX_INSTRUMENT.instrument_id,
+        market_id=ERNX_MARKET.market_id,
+        access_route_id=(
+            ERNX_IBKR_ACCESS.access_route_id
+        ),
+        position_size_eur=position_size_eur,
+        entry_supported=None,
+        immediate_exit_supported=None,
+        remaining_entry_capacity_eur=None,
+        immediate_exit_coverage_pct=None,
+        position_pct_of_market=position_pct_of_market,
+        position_pct_reference="share_class_aum",
+        reference_yield_pct=snapshot.yield_value_pct,
+        executable_yield_pct=None,
+        position_adjusted_yield_pct=None,
+        executable_economics_known=False,
         rejection_reason=None,
         notes=notes,
     )
