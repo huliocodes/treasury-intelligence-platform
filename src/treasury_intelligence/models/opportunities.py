@@ -108,3 +108,30 @@ class OpportunitySnapshot:
     source_url: str | None = None
 
     notes: str | None = None
+    
+
+@dataclass(frozen=True)
+class MarketObservation:
+    observation_id: str
+
+    instrument_id: str
+    market_id: str
+
+    observed_at: str
+    observation_type: str
+
+    price_pct_of_par: float | None = None
+
+    bid_price: float | None = None
+    ask_price: float | None = None
+
+    bid_size: float | None = None
+    ask_size: float | None = None
+
+    yield_pct: float | None = None
+    yield_measure: str | None = None
+
+    source: str | None = None
+    source_url: str | None = None
+
+    notes: str | None = None

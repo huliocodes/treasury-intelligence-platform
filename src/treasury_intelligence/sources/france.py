@@ -5,6 +5,7 @@ from treasury_intelligence.models.opportunities import (
     AccessRoute,
     Instrument,
     Market,
+    MarketObservation,
     OpportunitySnapshot,
 )
 
@@ -99,3 +100,26 @@ def get_btf_2027_03_10_snapshot() -> OpportunitySnapshot:
             "be evaluated using a live broker quote."
         ),
     )
+
+
+def get_btf_2027_03_10_market_observation(
+) -> MarketObservation:
+    return MarketObservation(
+        observation_id=(
+            "fr_btf_2027_03_10_public_market_2026-08-29"
+        ),
+        instrument_id=BTF_2027_03_10.instrument_id,
+        market_id=BTF_2027_03_10_MARKET.market_id,
+        observed_at="2026-08-29",
+        observation_type="delayed_public_market",
+        price_pct_of_par=98.60,
+        source="finanzen.net",
+        source_url=(
+            "https://www.finanzen.net/"
+        ),
+        notes=(
+            "Public secondary-market price observation. "
+            "Not a firm executable quote. Bid, ask and "
+            "available size are unknown."
+        ),
+    )    
