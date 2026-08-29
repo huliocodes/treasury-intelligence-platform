@@ -135,3 +135,32 @@ class MarketObservation:
     source_url: str | None = None
 
     notes: str | None = None
+
+
+@dataclass(frozen=True)
+class PositionAnalysis:
+    analysis_id: str
+
+    instrument_id: str
+    market_id: str
+    access_route_id: str
+
+    position_size_eur: float
+
+    entry_supported: bool | None
+    immediate_exit_supported: bool | None
+
+    remaining_entry_capacity_eur: float | None = None
+    immediate_exit_coverage_pct: float | None = None
+
+    position_pct_of_market: float | None = None
+    position_pct_reference: str | None = None
+
+    reference_yield_pct: float | None = None
+    executable_yield_pct: float | None = None
+    position_adjusted_yield_pct: float | None = None
+
+    executable_economics_known: bool = False
+
+    rejection_reason: str | None = None
+    notes: str | None = None    

@@ -5,6 +5,13 @@ from datetime import datetime, timezone
 
 from web3 import Web3
 
+from treasury_intelligence.models.opportunities import (
+    Accessibility,
+    AccessRoute,
+    Instrument,
+    Market,
+)
+
 
 BASE_RPC_URL = "https://mainnet.base.org"
 
@@ -282,3 +289,56 @@ def analyze_position_support(
             immediate_exit_coverage_pct
         ),
     )
+
+
+AAVE_V3_BASE_EURC_INSTRUMENT = Instrument(
+    instrument_id="aave_v3_base_eurc",
+    provider="Aave",
+    name="Aave V3 Base EURC Supply",
+    instrument_type="defi_lending",
+    legal_structure="onchain_lending_position",
+    currency="EURC",
+    yield_source="defi_borrower_demand",
+    contract_address=(
+        "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
+    ),
+)
+
+
+AAVE_V3_BASE_EURC_MARKET = Market(
+    market_id="aave_v3_base_eurc_market",
+    instrument_id=AAVE_V3_BASE_EURC_INSTRUMENT.instrument_id,
+    venue="Aave V3 Base",
+    venue_type="defi_protocol",
+    trading_currency="EURC",
+)
+
+
+AAVE_V3_BASE_EURC_DIRECT_ACCESS = AccessRoute(
+    access_route_id="aave_v3_base_eurc_direct",
+    market_id=AAVE_V3_BASE_EURC_MARKET.market_id,
+    provider="Direct corporate wallet",
+    route_type="onchain_self_custody",
+    investor_type="corporate",
+    jurisdiction="Slovenia",
+)
+
+
+AAVE_V3_BASE_EURC_ACCESSIBILITY = Accessibility(
+    access_route_id=(
+        AAVE_V3_BASE_EURC_DIRECT_ACCESS.access_route_id
+    ),
+    entity_type="Slovenian d.o.o.",
+    jurisdiction="Slovenia",
+    technical_access="yes",
+    corporate_operational_access="unverified",
+    status="research_eligible_not_actionable",
+    evidence_level="technical_access_only",
+    notes=(
+        "Aave market access is technically available, "
+        "but the complete Slovenian corporate EUR bank "
+        "account -> EURC -> Aave -> EUR -> corporate "
+        "bank account operational and legal path has "
+        "not yet been verified."
+    ),
+)    
