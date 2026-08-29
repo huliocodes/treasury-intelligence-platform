@@ -15,6 +15,8 @@ class Instrument:
     currency: str
     yield_source: str
 
+    fx_exposure_currency: str | None = None
+
     issuer: str | None = None
 
     isin: str | None = None

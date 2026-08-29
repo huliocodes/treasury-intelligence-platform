@@ -299,6 +299,7 @@ AAVE_V3_BASE_EURC_INSTRUMENT = Instrument(
     legal_structure="onchain_lending_position",
     currency="EURC",
     yield_source="defi_borrower_demand",
+    fx_exposure_currency="EUR",
     contract_address=(
         "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
     ),
