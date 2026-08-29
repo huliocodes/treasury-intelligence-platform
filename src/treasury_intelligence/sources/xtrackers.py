@@ -5,6 +5,7 @@ from treasury_intelligence.models.opportunities import (
     AccessRoute,
     Instrument,
     Market,
+    MarketObservation,
     OpportunitySnapshot,
 )
 
@@ -107,3 +108,39 @@ def build_xeon_snapshot(
             "or executable yield."
         ),
     )
+
+
+def get_xeon_market_observation() -> MarketObservation:
+    last_price = 150.02
+    daily_volume_units = 129_052
+
+    daily_turnover_eur = (
+        last_price
+        * daily_volume_units
+    )
+
+    return MarketObservation(
+        observation_id=(
+            "xeon_xetra_2026_08_27_market_activity"
+        ),
+        instrument_id=XEON_INSTRUMENT.instrument_id,
+        market_id=XEON_MARKET.market_id,
+        observed_at="2026-08-27",
+        observation_type=(
+            "delayed_public_market_activity"
+        ),
+        last_price=last_price,
+        daily_volume_units=daily_volume_units,
+        daily_turnover_eur=daily_turnover_eur,
+        source="MarketScreener",
+        source_url=(
+            "https://www.marketscreener.com/quote/etf/"
+            "XTRACKERS-II-EUR-OVERNIGH-576012/quotes/"
+        ),
+        notes=(
+            "Delayed Xetra market observation. Daily volume is "
+            "evidence of market activity, not evidence that the "
+            "same amount can be executed immediately at the "
+            "displayed market price."
+        ),
+    )    

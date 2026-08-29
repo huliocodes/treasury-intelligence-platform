@@ -123,12 +123,16 @@ class MarketObservation:
     observation_type: str
 
     price_pct_of_par: float | None = None
+    last_price: float | None = None
 
     bid_price: float | None = None
     ask_price: float | None = None
 
     bid_size: float | None = None
     ask_size: float | None = None
+
+    daily_volume_units: float | None = None
+    daily_turnover_eur: float | None = None
 
     yield_pct: float | None = None
     yield_measure: str | None = None
@@ -158,6 +162,11 @@ class PositionAnalysis:
     position_pct_of_market: float | None = None
     position_pct_reference: str | None = None
 
+    observed_daily_turnover_eur: float | None = None
+    position_pct_of_daily_turnover: float | None = None
+
+    liquidity_evidence_level: str | None = None
+
     reference_yield_pct: float | None = None
     executable_yield_pct: float | None = None
     position_adjusted_yield_pct: float | None = None
@@ -165,4 +174,4 @@ class PositionAnalysis:
     executable_economics_known: bool = False
 
     rejection_reason: str | None = None
-    notes: str | None = None    
+    notes: str | None = None

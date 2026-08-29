@@ -163,92 +163,156 @@ def build_btf_position_analysis(
 def build_xeon_position_analysis(
     snapshot: OpportunitySnapshot,
     position_size_eur: float,
+    market_observation: MarketObservation | None = None,
 ) -> PositionAnalysis:
     position_pct_of_market = None
 
-    if snapshot.fund_aum_eur:
+    if (
+        snapshot.fund_aum_eur is not None
+        and snapshot.fund_aum_eur > 0
+    ):
         position_pct_of_market = (
             position_size_eur
             / snapshot.fund_aum_eur
             * 100
         )
 
-    notes = (
-        "Fund AUM provides scale context only. "
-        "It does not prove exchange order-book depth, "
-        "market-maker capacity, spread, slippage or "
-        "immediate exit liquidity for the proposed position."
-    )
+    observed_daily_turnover_eur = None
+    position_pct_of_daily_turnover = None
+    liquidity_evidence_level = None
+
+    if (
+        market_observation is not None
+        and market_observation.daily_turnover_eur
+        is not None
+        and market_observation.daily_turnover_eur > 0
+    ):
+        observed_daily_turnover_eur = (
+            market_observation.daily_turnover_eur
+        )
+
+        position_pct_of_daily_turnover = (
+            position_size_eur
+            / observed_daily_turnover_eur
+            * 100
+        )
+
+        liquidity_evidence_level = (
+            "market_activity"
+        )
 
     return PositionAnalysis(
         analysis_id=(
-            f"xeon_xetra_"
-            f"{int(position_size_eur)}"
+            f"xeon_{int(position_size_eur)}"
         ),
-        instrument_id=XEON_INSTRUMENT.instrument_id,
-        market_id=XEON_MARKET.market_id,
-        access_route_id=(
-            XEON_IBKR_ACCESS.access_route_id
-        ),
+        instrument_id=snapshot.instrument_id,
+        market_id=snapshot.market_id,
+        access_route_id=snapshot.access_route_id,
         position_size_eur=position_size_eur,
         entry_supported=None,
         immediate_exit_supported=None,
-        remaining_entry_capacity_eur=None,
-        immediate_exit_coverage_pct=None,
-        position_pct_of_market=position_pct_of_market,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
         position_pct_reference="fund_aum",
-        reference_yield_pct=snapshot.yield_value_pct,
+        observed_daily_turnover_eur=(
+            observed_daily_turnover_eur
+        ),
+        position_pct_of_daily_turnover=(
+            position_pct_of_daily_turnover
+        ),
+        liquidity_evidence_level=(
+            liquidity_evidence_level
+        ),
+        reference_yield_pct=(
+            snapshot.yield_value_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
-        rejection_reason=None,
-        notes=notes,
+        notes=(
+            "Fund AUM and observed daily market activity provide "
+            "scale context only. Daily turnover does not establish "
+            "immediate executable depth for this position."
+        ),
     )
 
 
 def build_ernx_position_analysis(
     snapshot: OpportunitySnapshot,
     position_size_eur: float,
+    market_observation: MarketObservation | None = None,
 ) -> PositionAnalysis:
     position_pct_of_market = None
 
-    if snapshot.share_class_aum_eur:
+    if (
+        snapshot.share_class_aum_eur is not None
+        and snapshot.share_class_aum_eur > 0
+    ):
         position_pct_of_market = (
             position_size_eur
             / snapshot.share_class_aum_eur
             * 100
         )
 
-    notes = (
-        "Share-class AUM provides scale context only. "
-        "It does not prove exchange order-book depth, "
-        "market-maker capacity, spread, slippage or "
-        "immediate exit liquidity for the proposed position. "
-        "Weighted-average YTM is a portfolio characteristic, "
-        "not an executable or guaranteed return."
-    )
+    observed_daily_turnover_eur = None
+    position_pct_of_daily_turnover = None
+    liquidity_evidence_level = None
+
+    if (
+        market_observation is not None
+        and market_observation.daily_turnover_eur
+        is not None
+        and market_observation.daily_turnover_eur > 0
+    ):
+        observed_daily_turnover_eur = (
+            market_observation.daily_turnover_eur
+        )
+
+        position_pct_of_daily_turnover = (
+            position_size_eur
+            / observed_daily_turnover_eur
+            * 100
+        )
+
+        liquidity_evidence_level = (
+            "market_activity"
+        )
 
     return PositionAnalysis(
         analysis_id=(
-            f"ernx_xetra_"
-            f"{int(position_size_eur)}"
+            f"ernx_{int(position_size_eur)}"
         ),
-        instrument_id=ERNX_INSTRUMENT.instrument_id,
-        market_id=ERNX_MARKET.market_id,
-        access_route_id=(
-            ERNX_IBKR_ACCESS.access_route_id
-        ),
+        instrument_id=snapshot.instrument_id,
+        market_id=snapshot.market_id,
+        access_route_id=snapshot.access_route_id,
         position_size_eur=position_size_eur,
         entry_supported=None,
         immediate_exit_supported=None,
-        remaining_entry_capacity_eur=None,
-        immediate_exit_coverage_pct=None,
-        position_pct_of_market=position_pct_of_market,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
         position_pct_reference="share_class_aum",
-        reference_yield_pct=snapshot.yield_value_pct,
+        observed_daily_turnover_eur=(
+            observed_daily_turnover_eur
+        ),
+        position_pct_of_daily_turnover=(
+            position_pct_of_daily_turnover
+        ),
+        liquidity_evidence_level=(
+            liquidity_evidence_level
+        ),
+        reference_yield_pct=(
+            snapshot.yield_value_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
-        rejection_reason=None,
-        notes=notes,
+        notes=(
+            "Share-class AUM and observed daily market activity "
+            "provide scale context only. ETF liquidity can also "
+            "depend on market makers and underlying liquidity, so "
+            "daily screen turnover does not establish immediate "
+            "executable depth."
+        ),
     )

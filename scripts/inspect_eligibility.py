@@ -51,6 +51,7 @@ from treasury_intelligence.sources.ishares import (
     ERNX_ACCESSIBILITY,
     ERNX_INSTRUMENT,
     ERNX_MARKET,
+    get_ernx_market_observation,
     get_ernx_snapshot,
 )
 
@@ -59,6 +60,7 @@ from treasury_intelligence.sources.xtrackers import (
     XEON_INSTRUMENT,
     XEON_MARKET,
     build_xeon_snapshot,
+    get_xeon_market_observation,
 )
 
 
@@ -104,11 +106,19 @@ def main() -> None:
         estr_reference_date=estr.reference_date,
     )
 
+    xeon_market_observation = (
+        get_xeon_market_observation()
+    )
+
     ernx_snapshot = get_ernx_snapshot()
+
+    ernx_market_observation = (
+        get_ernx_market_observation()
+    )
 
     btf_snapshot = get_btf_2027_03_10_snapshot()
 
-    btf_market = (
+    btf_market_observation = (
         get_btf_2027_03_10_market_observation()
     )
 
@@ -119,7 +129,9 @@ def main() -> None:
     )
 
     btf_market_yield = zero_coupon_annualized_yield(
-        price_pct_of_par=btf_market.price_pct_of_par,
+        price_pct_of_par=(
+            btf_market_observation.price_pct_of_par
+        ),
         settlement_date=settlement_date,
         maturity_date=maturity_date,
     )
@@ -137,7 +149,9 @@ def main() -> None:
 
         result = evaluate_eligibility(
             mandate=mandate,
-            instrument=AAVE_V3_BASE_EURC_INSTRUMENT,
+            instrument=(
+                AAVE_V3_BASE_EURC_INSTRUMENT
+            ),
             market=AAVE_V3_BASE_EURC_MARKET,
             accessibility=(
                 AAVE_V3_BASE_EURC_ACCESSIBILITY
@@ -153,7 +167,9 @@ def main() -> None:
     for position_size in POSITION_SIZES_EUR:
         btf_position = build_btf_position_analysis(
             snapshot=btf_snapshot,
-            market_observation=btf_market,
+            market_observation=(
+                btf_market_observation
+            ),
             position_size_eur=position_size,
             market_derived_yield_pct=(
                 btf_market_yield
@@ -179,6 +195,9 @@ def main() -> None:
         xeon_position = build_xeon_position_analysis(
             snapshot=xeon_snapshot,
             position_size_eur=position_size,
+            market_observation=(
+                xeon_market_observation
+            ),
         )
 
         result = evaluate_eligibility(
@@ -198,6 +217,9 @@ def main() -> None:
         ernx_position = build_ernx_position_analysis(
             snapshot=ernx_snapshot,
             position_size_eur=position_size,
+            market_observation=(
+                ernx_market_observation
+            ),
         )
 
         result = evaluate_eligibility(

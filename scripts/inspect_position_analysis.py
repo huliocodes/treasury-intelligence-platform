@@ -35,11 +35,13 @@ from treasury_intelligence.sources.france import (
 )
 
 from treasury_intelligence.sources.ishares import (
+    get_ernx_market_observation,
     get_ernx_snapshot,
 )
 
 from treasury_intelligence.sources.xtrackers import (
     build_xeon_snapshot,
+    get_xeon_market_observation,
 )
 
 
@@ -52,7 +54,7 @@ POSITION_SIZES_EUR = [
 ]
 
 
-def yes_no_unknown(
+def format_optional_bool(
     value: bool | None,
 ) -> str:
     if value is True:
@@ -64,44 +66,13 @@ def yes_no_unknown(
     return "unknown"
 
 
-def print_market_scale_analysis(
-    label: str,
-    snapshot_yield_pct: float,
-    yield_label: str,
-    builder,
-) -> None:
-    print(label)
-    print(
-        f"{yield_label:<22}"
-        f"{snapshot_yield_pct:.3f}%"
-    )
+def format_optional_pct(
+    value: float | None,
+) -> str:
+    if value is None:
+        return "unknown"
 
-    print()
-
-    for position_size in POSITION_SIZES_EUR:
-        analysis = builder(position_size)
-
-        position_pct = (
-            analysis.position_pct_of_market
-            if analysis.position_pct_of_market is not None
-            else 0
-        )
-
-        print(
-            f"EUR {position_size:>10,.0f} | "
-            f"entry: "
-            f"{yes_no_unknown(analysis.entry_supported):<7} | "
-            f"immediate exit: "
-            f"{yes_no_unknown(
-                analysis.immediate_exit_supported
-            ):<7} | "
-            f"market ref: "
-            f"{position_pct:>7.4f}% | "
-            f"executable: "
-            f"{yes_no_unknown(
-                analysis.executable_economics_known
-            )}"
-        )
+    return f"{value:.2f}%"
 
 
 def main() -> None:
@@ -114,11 +85,19 @@ def main() -> None:
         estr_reference_date=estr.reference_date,
     )
 
+    xeon_market_observation = (
+        get_xeon_market_observation()
+    )
+
     ernx_snapshot = get_ernx_snapshot()
+
+    ernx_market_observation = (
+        get_ernx_market_observation()
+    )
 
     btf_snapshot = get_btf_2027_03_10_snapshot()
 
-    btf_market = (
+    btf_market_observation = (
         get_btf_2027_03_10_market_observation()
     )
 
@@ -129,7 +108,9 @@ def main() -> None:
     )
 
     btf_market_yield = zero_coupon_annualized_yield(
-        price_pct_of_par=btf_market.price_pct_of_par,
+        price_pct_of_par=(
+            btf_market_observation.price_pct_of_par
+        ),
         settlement_date=settlement_date,
         maturity_date=maturity_date,
     )
@@ -138,12 +119,10 @@ def main() -> None:
     print()
 
     print("AAVE V3 BASE EURC")
-
     print(
         f"Current supply APY:   "
         f"{aave_observation.supply_apy_pct:.3f}%"
     )
-
     print()
 
     for position_size in POSITION_SIZES_EUR:
@@ -155,83 +134,170 @@ def main() -> None:
         print(
             f"EUR {position_size:>10,.0f} | "
             f"entry: "
-            f"{yes_no_unknown(analysis.entry_supported):<7} | "
+            f"{format_optional_bool(analysis.entry_supported):<7} | "
             f"immediate exit: "
-            f"{yes_no_unknown(
-                analysis.immediate_exit_supported
-            ):<7} | "
+            f"{format_optional_bool(analysis.immediate_exit_supported):<7} | "
             f"exit coverage: "
-            f"{analysis.immediate_exit_coverage_pct:>6.2f}%"
+            f"{format_optional_pct(analysis.immediate_exit_coverage_pct):>8}"
         )
 
     print()
     print("FRENCH BTF")
-
     print(
         f"Public derived yield: "
         f"{btf_market_yield:.3f}%"
     )
-
     print()
 
     for position_size in POSITION_SIZES_EUR:
         analysis = build_btf_position_analysis(
             snapshot=btf_snapshot,
-            market_observation=btf_market,
+            market_observation=btf_market_observation,
             position_size_eur=position_size,
-            market_derived_yield_pct=btf_market_yield,
+            market_derived_yield_pct=(
+                btf_market_yield
+            ),
         )
 
-        position_pct = (
-            analysis.position_pct_of_market
-            if analysis.position_pct_of_market is not None
-            else 0
+        market_pct = (
+            "unknown"
+            if analysis.position_pct_of_market is None
+            else (
+                f"{analysis.position_pct_of_market:.4f}%"
+            )
         )
 
-        executable = yes_no_unknown(
-            analysis.executable_economics_known
+        executable = (
+            "yes"
+            if analysis.executable_economics_known
+            else "no"
         )
 
         print(
             f"EUR {position_size:>10,.0f} | "
             f"entry: "
-            f"{yes_no_unknown(analysis.entry_supported):<7} | "
+            f"{format_optional_bool(analysis.entry_supported):<7} | "
             f"immediate exit: "
-            f"{yes_no_unknown(
-                analysis.immediate_exit_supported
-            ):<7} | "
-            f"issue: "
-            f"{position_pct:>7.4f}% | "
+            f"{format_optional_bool(analysis.immediate_exit_supported):<7} | "
+            f"issue: {market_pct:>8} | "
             f"executable: {executable}"
         )
 
     print()
-
-    print_market_scale_analysis(
-        label="XEON",
-        snapshot_yield_pct=xeon_snapshot.yield_value_pct,
-        yield_label="Benchmark estimate:",
-        builder=lambda position_size: (
-            build_xeon_position_analysis(
-                snapshot=xeon_snapshot,
-                position_size_eur=position_size,
-            )
-        ),
+    print("XEON")
+    print(
+        f"Benchmark estimate:   "
+        f"{xeon_snapshot.yield_value_pct:.3f}%"
     )
-
+    print(
+        f"Observed turnover:    "
+        f"EUR "
+        f"{xeon_market_observation.daily_turnover_eur:,.0f}"
+    )
     print()
 
-    print_market_scale_analysis(
-        label="ERNX",
-        snapshot_yield_pct=ernx_snapshot.yield_value_pct,
-        yield_label="Portfolio YTM:",
-        builder=lambda position_size: (
-            build_ernx_position_analysis(
-                snapshot=ernx_snapshot,
-                position_size_eur=position_size,
+    for position_size in POSITION_SIZES_EUR:
+        analysis = build_xeon_position_analysis(
+            snapshot=xeon_snapshot,
+            position_size_eur=position_size,
+            market_observation=(
+                xeon_market_observation
+            ),
+        )
+
+        market_pct = (
+            "unknown"
+            if analysis.position_pct_of_market is None
+            else (
+                f"{analysis.position_pct_of_market:.4f}%"
             )
-        ),
+        )
+
+        turnover_pct = (
+            "unknown"
+            if (
+                analysis.position_pct_of_daily_turnover
+                is None
+            )
+            else (
+                f"{analysis.position_pct_of_daily_turnover:.2f}%"
+            )
+        )
+
+        executable = (
+            "yes"
+            if analysis.executable_economics_known
+            else "no"
+        )
+
+        print(
+            f"EUR {position_size:>10,.0f} | "
+            f"entry: "
+            f"{format_optional_bool(analysis.entry_supported):<7} | "
+            f"immediate exit: "
+            f"{format_optional_bool(analysis.immediate_exit_supported):<7} | "
+            f"market ref: {market_pct:>8} | "
+            f"daily turnover: {turnover_pct:>8} | "
+            f"executable: {executable}"
+        )
+
+    print()
+    print("ERNX")
+    print(
+        f"Portfolio YTM:        "
+        f"{ernx_snapshot.yield_value_pct:.3f}%"
     )
+    print(
+        f"Observed turnover:    "
+        f"EUR "
+        f"{ernx_market_observation.daily_turnover_eur:,.0f}"
+    )
+    print()
+
+    for position_size in POSITION_SIZES_EUR:
+        analysis = build_ernx_position_analysis(
+            snapshot=ernx_snapshot,
+            position_size_eur=position_size,
+            market_observation=(
+                ernx_market_observation
+            ),
+        )
+
+        market_pct = (
+            "unknown"
+            if analysis.position_pct_of_market is None
+            else (
+                f"{analysis.position_pct_of_market:.4f}%"
+            )
+        )
+
+        turnover_pct = (
+            "unknown"
+            if (
+                analysis.position_pct_of_daily_turnover
+                is None
+            )
+            else (
+                f"{analysis.position_pct_of_daily_turnover:.2f}%"
+            )
+        )
+
+        executable = (
+            "yes"
+            if analysis.executable_economics_known
+            else "no"
+        )
+
+        print(
+            f"EUR {position_size:>10,.0f} | "
+            f"entry: "
+            f"{format_optional_bool(analysis.entry_supported):<7} | "
+            f"immediate exit: "
+            f"{format_optional_bool(analysis.immediate_exit_supported):<7} | "
+            f"market ref: {market_pct:>8} | "
+            f"daily turnover: {turnover_pct:>8} | "
+            f"executable: {executable}"
+        )
 
 
 if __name__ == "__main__":

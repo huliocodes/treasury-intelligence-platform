@@ -5,6 +5,7 @@ from treasury_intelligence.models.opportunities import (
     AccessRoute,
     Instrument,
     Market,
+    MarketObservation,
     OpportunitySnapshot,
 )
 
@@ -85,5 +86,40 @@ def get_ernx_snapshot() -> OpportunitySnapshot:
             "Short-duration EUR investment-grade credit "
             "exposure. YTM is an observable portfolio "
             "characteristic, not APY."
+        ),
+    )
+
+
+def get_ernx_market_observation() -> MarketObservation:
+    last_price = 5.605
+    daily_volume_units = 265_072
+
+    daily_turnover_eur = (
+        last_price
+        * daily_volume_units
+    )
+
+    return MarketObservation(
+        observation_id=(
+            "ernx_xetra_2026_08_21_market_activity"
+        ),
+        instrument_id=ERNX_INSTRUMENT.instrument_id,
+        market_id=ERNX_MARKET.market_id,
+        observed_at="2026-08-21",
+        observation_type=(
+            "delayed_public_market_activity"
+        ),
+        last_price=last_price,
+        daily_volume_units=daily_volume_units,
+        daily_turnover_eur=daily_turnover_eur,
+        source="MarketScreener",
+        source_url=(
+            "https://www.marketscreener.com/quote/etf/"
+            "ISHARES-ULTRASHORT-BOND-U-137131876/"
+        ),
+        notes=(
+            "Delayed Xetra market observation. Daily volume is "
+            "market-activity evidence only and does not establish "
+            "immediate executable depth for a proposed position."
         ),
     )
