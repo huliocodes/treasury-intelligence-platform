@@ -12,6 +12,11 @@ from treasury_intelligence.analytics.allocation_deltas import (
     build_treasury_allocation_delta,
 )
 
+from treasury_intelligence.analytics.cash_returns import (
+    build_cash_baseline_return_assessment,
+    build_unallocated_return_input,
+)
+
 from treasury_intelligence.analytics.economic_comparisons import (
     build_treasury_economic_comparison,
 )
@@ -84,8 +89,9 @@ from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
 
-from treasury_intelligence.models.economic_comparisons import (
-    UnallocatedReturnInput,
+from treasury_intelligence.models.cash_baselines import (
+    CashBalance,
+    CashBaseline,
 )
 
 from treasury_intelligence.models.rebalance import (
@@ -286,6 +292,69 @@ def build_xeon_pipeline():
     )
 
 
+def build_model_company_cash_baseline(
+    total_cash_eur: float,
+) -> CashBaseline:
+    if total_cash_eur <= 0:
+        return CashBaseline(
+            baseline_id=(
+                "model_company_cash_baseline_"
+                "2026_08_30"
+            ),
+            mandate_id=(
+                MODEL_COMPANY_MANDATE.mandate_id
+            ),
+            as_of=AS_OF,
+            total_cash_eur=0.0,
+            balances=(),
+            notes=(
+                "No currently unallocated treasury "
+                "cash exists in this state."
+            ),
+        )
+
+    unresolved_cash = CashBalance(
+        balance_id=(
+            "model_company_unresolved_"
+            "corporate_cash"
+        ),
+        label="Unresolved corporate cash",
+        balance_type="other_cash",
+        balance_eur=total_cash_eur,
+        annual_return_pct=None,
+        return_evidence_available=False,
+        institution=None,
+        source_reference=None,
+        notes=(
+            "The model company does not yet have "
+            "verified account-level balance and "
+            "cash-remuneration evidence. No bank "
+            "allocation or return is invented."
+        ),
+    )
+
+    return CashBaseline(
+        baseline_id=(
+            "model_company_cash_baseline_"
+            "2026_08_30"
+        ),
+        mandate_id=(
+            MODEL_COMPANY_MANDATE.mandate_id
+        ),
+        as_of=AS_OF,
+        total_cash_eur=total_cash_eur,
+        balances=(
+            unresolved_cash,
+        ),
+        notes=(
+            "Current unallocated model-company "
+            "treasury cash baseline. The full balance "
+            "is represented explicitly while its "
+            "return remains unresolved."
+        ),
+    )
+
+
 def main() -> None:
     print(
         "REAL INTEGRATED MONTHLY TREASURY REVIEW"
@@ -384,30 +453,64 @@ def main() -> None:
         )
     )
 
-    current_unallocated_return = (
-        UnallocatedReturnInput(
-            annual_return_pct=None,
-            evidence_available=False,
-            source_reference=None,
-            notes=(
-                "Current unallocated treasury "
-                "return evidence is not yet "
-                "modeled as a defensible blended "
-                "corporate cash return."
+    cash_baseline = (
+        build_model_company_cash_baseline(
+            total_cash_eur=(
+                state.unallocated_capital_eur
             ),
         )
     )
 
-    proposed_unallocated_return = (
-        UnallocatedReturnInput(
-            annual_return_pct=None,
-            evidence_available=False,
-            source_reference=None,
+    cash_return_assessment = (
+        build_cash_baseline_return_assessment(
+            assessment_id=(
+                "model_company_cash_return_"
+                "2026_08_30"
+            ),
+            baseline=cash_baseline,
             notes=(
-                "The proposal retains the treasury "
-                "unallocated. No defensible blended "
-                "corporate cash return is currently "
-                "available."
+                "Current model-company cash return "
+                "assessment derived from the explicit "
+                "cash baseline."
+            ),
+        )
+    )
+
+    current_unallocated_return = (
+        build_unallocated_return_input(
+            assessment=(
+                cash_return_assessment
+            ),
+            notes=(
+                "Current unallocated treasury return "
+                "derived from the current cash-baseline "
+                "return assessment."
+            ),
+        )
+    )
+
+    if (
+        proposal.unallocated_capital_eur
+        != state.unallocated_capital_eur
+    ):
+        raise ValueError(
+            "The current 8A.3 integration can reuse "
+            "the current cash-baseline return for the "
+            "proposed unallocated balance only when "
+            "the proposal leaves unallocated capital "
+            "unchanged."
+        )
+
+    proposed_unallocated_return = (
+        build_unallocated_return_input(
+            assessment=(
+                cash_return_assessment
+            ),
+            notes=(
+                "Proposed unallocated treasury return "
+                "uses the same cash-baseline assessment "
+                "because the current proposal leaves "
+                "unallocated capital unchanged."
             ),
         )
     )
@@ -441,9 +544,8 @@ def main() -> None:
             notes=(
                 "Economic comparison consumes "
                 "derived position-return evidence "
-                "where an allocation exists and "
-                "preserves unknown unallocated "
-                "cash economics explicitly."
+                "and cash-baseline return evidence. "
+                "Unknown economics remain explicit."
             ),
         )
     )
@@ -521,7 +623,7 @@ def main() -> None:
                 decision
             ),
             notes=(
-                "7D.2 integrated monthly-review "
+                "7D/8A integrated monthly-review "
                 "pipeline."
             ),
         )
@@ -649,6 +751,51 @@ def main() -> None:
 
     print()
 
+    print("CURRENT CASH BASELINE")
+    print()
+
+    print(
+        f"Baseline total cash:           "
+        f"EUR {cash_baseline.total_cash_eur:,.0f}"
+    )
+
+    print(
+        f"Cash balance count:            "
+        f"{len(cash_baseline.balances)}"
+    )
+
+    print(
+        f"Return evidence coverage:      "
+        f"{cash_return_assessment.return_evidence_coverage_pct:.2f}%"
+    )
+
+    print(
+        f"Cash economics status:         "
+        f"{cash_return_assessment.assessment_status}"
+    )
+
+    if (
+        cash_return_assessment.blended_annual_return_pct
+        is None
+    ):
+        cash_return_text = "UNKNOWN"
+    else:
+        cash_return_text = (
+            f"{cash_return_assessment.blended_annual_return_pct:.3f}%"
+        )
+
+    print(
+        f"Blended cash return:           "
+        f"{cash_return_text}"
+    )
+
+    print(
+        f"Review cash evidence:          "
+        f"{current_unallocated_return.evidence_available}"
+    )
+
+    print()
+
     print("PORTFOLIO")
     print()
 
@@ -767,10 +914,24 @@ def main() -> None:
                 f"  - {label}"
             )
 
+    if cash_return_assessment.evidence_requirements:
+        print()
+        print(
+            "CASH BASELINE EVIDENCE REQUIREMENTS"
+        )
+        print()
+
+        for requirement in (
+            cash_return_assessment.evidence_requirements
+        ):
+            print(
+                f"  - {requirement}"
+            )
+
     if review.evidence_requirements:
         print()
         print(
-            "EVIDENCE REQUIREMENTS"
+            "REVIEW EVIDENCE REQUIREMENTS"
         )
         print()
 
@@ -807,7 +968,7 @@ def main() -> None:
     print()
 
     print(
-        "XEON return evidence also crosses into the "
+        "XEON return evidence crosses into the "
         "review layer through the validated "
         "economics-to-review-return adapter."
     )
@@ -824,10 +985,19 @@ def main() -> None:
     print()
 
     print(
-        "Unallocated corporate cash return remains "
-        "an explicit evidence gap rather than being "
-        "silently assumed to earn zero, €STR, or a "
-        "generic deposit rate."
+        "Current corporate cash return evidence now "
+        "crosses into the review layer through "
+        "CashBaseline, CashBaselineReturnAssessment, "
+        "and build_unallocated_return_input."
+    )
+
+    print()
+
+    print(
+        "The model-company cash composition is not "
+        "invented. Until account-level balance and "
+        "return evidence exists, the full unallocated "
+        "balance remains explicitly unresolved."
     )
 
 
