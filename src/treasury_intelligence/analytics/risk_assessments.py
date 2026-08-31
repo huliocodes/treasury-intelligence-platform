@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from treasury_intelligence.analytics.ernx_risk_evidence import (
+    get_ernx_recommendation_risk_observations,
+)
+
 from treasury_intelligence.analytics.risk import (
     get_aave_eurc_risk_observations,
     get_btf_risk_observations,
@@ -18,6 +22,7 @@ from treasury_intelligence.models.risk_assessments import (
 
 
 ASSESSED_AT = "2026-08-29"
+ERNX_ASSESSED_AT = "2026-08-31"
 
 
 def _observation_ids(
@@ -509,7 +514,10 @@ def get_xeon_risk_assessments(
 
 def get_ernx_risk_assessments(
 ) -> tuple[RiskAssessment, ...]:
-    observations = get_ernx_risk_observations()
+    observations = (
+        get_ernx_risk_observations()
+        + get_ernx_recommendation_risk_observations()
+    )
 
     instrument_id = observations[0].instrument_id
     market_id = observations[0].market_id
@@ -536,7 +544,7 @@ def get_ernx_risk_assessments(
                     "principal_credit",
                 )
             ),
-            assessed_at=ASSESSED_AT,
+            assessed_at=ERNX_ASSESSED_AT,
             evidence_sufficient=True,
             notes=(
                 "A later assessment can become more granular once "
@@ -552,10 +560,11 @@ def get_ernx_risk_assessments(
             risk_dimension="market",
             risk_level="low",
             rationale=(
-                "Observed effective duration of 0.36 years and "
-                "weighted average maturity of 0.62 years indicate "
-                "limited interest-rate sensitivity relative to "
-                "longer-duration bond portfolios. Credit-spread and "
+                "Observed effective duration of approximately "
+                "0.36 years and weighted average maturity of "
+                "approximately 0.62 years indicate limited "
+                "interest-rate sensitivity relative to longer-"
+                "duration bond portfolios. Credit-spread and "
                 "market-price movements can still affect value."
             ),
             supporting_observation_ids=(
@@ -564,7 +573,7 @@ def get_ernx_risk_assessments(
                     "market",
                 )
             ),
-            assessed_at=ASSESSED_AT,
+            assessed_at=ERNX_ASSESSED_AT,
             evidence_sufficient=True,
         ),
         _unknown_assessment(
@@ -603,10 +612,10 @@ def get_ernx_risk_assessments(
                     "currency_asset",
                 )
             ),
-            assessed_at=ASSESSED_AT,
+            assessed_at=ERNX_ASSESSED_AT,
             evidence_sufficient=True,
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "ernx_structural_counterparty"
             ),
@@ -615,19 +624,33 @@ def get_ernx_risk_assessments(
             risk_dimension=(
                 "structural_counterparty"
             ),
+            risk_level="low",
             rationale=(
-                "Physical sampled replication means the fund does "
-                "not depend on synthetic swap replication for its "
-                "core exposure. However, the current observation "
-                "layer does not yet contain sufficient custody, "
-                "securities-lending, fund-structure, or "
-                "counterparty evidence to grade structural risk."
+                "ERNX is a physically replicated Irish UCITS ETF "
+                "with State Street Custodial Services (Ireland) "
+                "Limited identified as custodian. Securities lending "
+                "introduces borrower and collateral dependencies, "
+                "but BlackRock reports average securities on loan "
+                "of 4.25% of AUM, a maximum of 6.67%, and "
+                "collateralisation of 106.09% for the year ending "
+                "30 June 2026. These controls and the limited "
+                "reported lending exposure support a low, rather "
+                "than negligible, structural/counterparty risk "
+                "assessment."
             ),
             supporting_observation_ids=(
                 _observation_ids(
                     observations,
                     "structural_counterparty",
                 )
+            ),
+            assessed_at=ERNX_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Low does not mean risk-free. Custodian failure, "
+                "service-provider failure, securities-lending "
+                "borrower default, collateral shortfall, or other "
+                "fund-structure failures can still cause loss."
             ),
         ),
         _not_applicable_assessment(
@@ -643,7 +666,7 @@ def get_ernx_risk_assessments(
                 "dimensions."
             ),
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "ernx_operational_regulatory"
             ),
@@ -652,12 +675,36 @@ def get_ernx_risk_assessments(
             risk_dimension=(
                 "operational_regulatory"
             ),
+            risk_level="low",
             rationale=(
-                "The V1 corporate brokerage route is considered "
-                "accessible, but the current observation layer does "
-                "not yet provide sufficient execution, custody, "
-                "accounting, tax, or operational evidence for a "
-                "qualitative assessment."
+                "The modeled route uses a conventional regulated "
+                "corporate brokerage and UCITS custody structure. "
+                "IBKR Ireland states that client money is segregated, "
+                "fully paid client securities are held at "
+                "depositories and custodians for clients' benefit, "
+                "and client money and securities are reconciled "
+                "daily. Together with the identified UCITS fund "
+                "custodian, this provides sufficient V1 evidence "
+                "that the core custody and operational path is "
+                "controlled, while ordinary broker, custodian, "
+                "settlement, onboarding, and administrative risks "
+                "remain."
+            ),
+            supporting_observation_ids=(
+                _observation_ids(
+                    observations,
+                    "operational_regulatory",
+                )
+            ),
+            assessed_at=ERNX_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Company-specific accounting, tax treatment, "
+                "internal authorization, and final account setup "
+                "remain execution-stage checks unless a specific "
+                "restriction is discovered. They are not treated "
+                "as evidence that the instrument itself is "
+                "unrecommendable at portfolio-analysis stage."
             ),
         ),
     )
