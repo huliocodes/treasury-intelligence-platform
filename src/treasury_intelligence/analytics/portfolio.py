@@ -88,8 +88,8 @@ def _validate_entity_alignment(
             != market_id
         ):
             raise ValueError(
-                "Position-risk market does not "
-                "match eligibility result."
+                "Position-risk market does not match "
+                "eligibility result."
             )
 
         if (
@@ -433,6 +433,10 @@ def build_integrated_portfolio_candidate(
             liquidity_risk.rationale
         )
 
+    blocking_reasons.extend(
+        risk_sufficiency.risk_blocking_reasons
+    )
+
     evidence_requirements.extend(
         risk_sufficiency.evidence_requirements
     )
@@ -564,7 +568,7 @@ def evidence_blocked_candidates(
     ],
 ) -> tuple[
     PortfolioCandidateAssessment,
-    ...
+        ...
 ]:
     return tuple(
         candidate

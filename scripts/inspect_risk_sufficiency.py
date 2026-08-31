@@ -71,10 +71,35 @@ def print_assessment(
     )
 
     print(
+        "Unacceptable dimensions:",
+        ", ".join(
+            assessment.unacceptable_dimensions
+        )
+        or "none",
+    )
+
+    print(
         "Evidence requirements:",
         len(
             assessment.evidence_requirements
         ),
+    )
+
+    print(
+        "Risk blockers:",
+        len(
+            assessment.risk_blocking_reasons
+        ),
+    )
+
+    print(
+        "Evidence sufficient:",
+        assessment.evidence_sufficient,
+    )
+
+    print(
+        "Risk acceptable:",
+        assessment.risk_acceptable,
     )
 
     print(
@@ -85,7 +110,7 @@ def print_assessment(
 
 def main() -> None:
     print()
-    print("RISK EVIDENCE SUFFICIENCY AUDIT")
+    print("RISK SUFFICIENCY AND TOLERANCE AUDIT")
     print("=" * 100)
 
     print_assessment(
@@ -107,14 +132,19 @@ def main() -> None:
     print("=" * 100)
 
     print(
-        "PASS: risk evidence sufficiency is evaluated "
-        "from mandate semantics rather than from an "
-        "arbitrary unknown-risk-count threshold."
+        "PASS: unknown required risks create evidence "
+        "requirements rather than arbitrary score-based "
+        "failures."
     )
 
     print(
-        "PASS: base-risk sufficiency remains independent "
-        "from position-size liquidity analysis."
+        "PASS: known required risks outside mandate "
+        "tolerance create blockers."
+    )
+
+    print(
+        "PASS: position-size liquidity remains separate "
+        "from the base-risk mandate gate."
     )
 
 

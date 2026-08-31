@@ -24,6 +24,12 @@ VERY_HIGH_CAPITAL_PRESERVATION_REQUIRED_DIMENSIONS = (
     "operational_regulatory",
 )
 
+VERY_HIGH_CAPITAL_PRESERVATION_ACCEPTABLE_LEVELS = (
+    "very_low",
+    "low",
+    "not_applicable",
+)
+
 
 @dataclass(frozen=True)
 class RiskEvidenceSufficiencyAssessment:
@@ -33,10 +39,15 @@ class RiskEvidenceSufficiencyAssessment:
     market_id: str
 
     required_dimensions: tuple[str, ...]
+
     insufficient_dimensions: tuple[str, ...]
+    unacceptable_dimensions: tuple[str, ...]
 
     evidence_requirements: tuple[str, ...]
+    risk_blocking_reasons: tuple[str, ...]
 
+    evidence_sufficient: bool
+    risk_acceptable: bool
     sufficient_for_recommendation: bool
 
     notes: str | None = None
@@ -62,7 +73,9 @@ def _index_risk_assessments(
                 f"{assessment.risk_dimension}"
             )
 
-        indexed[assessment.risk_dimension] = assessment
+        indexed[
+            assessment.risk_dimension
+        ] = assessment
 
     missing_dimensions = (
         set(RISK_DIMENSIONS)
@@ -130,6 +143,27 @@ def _required_dimensions(
     return ()
 
 
+def _acceptable_risk_levels(
+    mandate: TreasuryMandate,
+) -> tuple[str, ...]:
+    if (
+        mandate.capital_preservation_priority
+        == "very_high"
+    ):
+        return (
+            VERY_HIGH_CAPITAL_PRESERVATION_ACCEPTABLE_LEVELS
+        )
+
+    return (
+        "very_low",
+        "low",
+        "moderate",
+        "high",
+        "very_high",
+        "not_applicable",
+    )
+
+
 def _risk_evidence_requirement(
     assessment: RiskAssessment,
 ) -> str:
@@ -139,6 +173,18 @@ def _risk_evidence_requirement(
         "opportunity can be recommendation-ready under "
         "the very-high-capital-preservation mandate. "
         f"Current assessment: {assessment.rationale}"
+    )
+
+
+def _risk_blocking_reason(
+    assessment: RiskAssessment,
+) -> str:
+    return (
+        "Known risk level is not acceptable for "
+        f"'{assessment.risk_dimension}' under the "
+        "very-high-capital-preservation mandate. "
+        f"Current risk level: {assessment.risk_level}. "
+        f"Assessment rationale: {assessment.rationale}"
     )
 
 
@@ -165,6 +211,10 @@ def assess_risk_evidence_sufficiency(
         mandate
     )
 
+    acceptable_levels = _acceptable_risk_levels(
+        mandate
+    )
+
     insufficient_dimensions = tuple(
         dimension
         for dimension in required_dimensions
@@ -173,11 +223,36 @@ def assess_risk_evidence_sufficiency(
         ].evidence_sufficient
     )
 
+    unacceptable_dimensions = tuple(
+        dimension
+        for dimension in required_dimensions
+        if (
+            indexed[dimension].evidence_sufficient
+            and indexed[dimension].risk_level
+            not in acceptable_levels
+        )
+    )
+
     evidence_requirements = tuple(
         _risk_evidence_requirement(
             indexed[dimension]
         )
         for dimension in insufficient_dimensions
+    )
+
+    risk_blocking_reasons = tuple(
+        _risk_blocking_reason(
+            indexed[dimension]
+        )
+        for dimension in unacceptable_dimensions
+    )
+
+    evidence_sufficient = (
+        len(insufficient_dimensions) == 0
+    )
+
+    risk_acceptable = (
+        len(unacceptable_dimensions) == 0
     )
 
     return RiskEvidenceSufficiencyAssessment(
@@ -188,17 +263,32 @@ def assess_risk_evidence_sufficiency(
         insufficient_dimensions=(
             insufficient_dimensions
         ),
+        unacceptable_dimensions=(
+            unacceptable_dimensions
+        ),
         evidence_requirements=(
             evidence_requirements
         ),
+        risk_blocking_reasons=(
+            risk_blocking_reasons
+        ),
+        evidence_sufficient=(
+            evidence_sufficient
+        ),
+        risk_acceptable=(
+            risk_acceptable
+        ),
         sufficient_for_recommendation=(
-            len(insufficient_dimensions) == 0
+            evidence_sufficient
+            and risk_acceptable
         ),
         notes=(
             "Liquidity is deliberately excluded from "
-            "this base-risk evidence gate. Treasury "
-            "liquidity requirements are evaluated "
-            "separately using position-size-aware "
-            "liquidity evidence and position risk."
+            "this base-risk gate. Treasury liquidity "
+            "requirements are evaluated separately using "
+            "position-size-aware liquidity evidence and "
+            "position risk. Unknown required risks create "
+            "evidence requirements. Known required risks "
+            "outside mandate tolerance create blockers."
         ),
     )
