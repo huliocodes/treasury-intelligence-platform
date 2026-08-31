@@ -20,6 +20,9 @@ from treasury_intelligence.sources.banks import (
 )
 
 
+STRONG_INFERRED_MAX_POSITION_PCT_OF_SCALE = 0.50
+
+
 def build_etf_position_analysis(
     snapshot: OpportunitySnapshot,
     position_size_eur: float,
@@ -59,7 +62,6 @@ def build_etf_position_analysis(
 
     observed_daily_turnover_eur = None
     position_pct_of_daily_turnover = None
-    liquidity_evidence_level = None
 
     if (
         market_observation is not None
@@ -76,7 +78,40 @@ def build_etf_position_analysis(
             * 100
         )
 
-        liquidity_evidence_level = "market_activity"
+    liquidity_evidence_level = None
+
+    strong_inferred_scale_support = (
+        position_pct_of_market is not None
+        and position_pct_of_market
+        <= STRONG_INFERRED_MAX_POSITION_PCT_OF_SCALE
+    )
+
+    if (
+        strong_inferred_scale_support
+        and market_observation is not None
+    ):
+        liquidity_evidence_level = (
+            "etf_scale_and_market_structure"
+        )
+
+    elif market_observation is not None:
+        if (
+            market_observation.bid_price is not None
+            and market_observation.ask_price is not None
+        ):
+            liquidity_evidence_level = (
+                "displayed_quote"
+            )
+
+        elif (
+            market_observation.daily_turnover_eur
+            is not None
+            or market_observation.daily_volume_units
+            is not None
+        ):
+            liquidity_evidence_level = (
+                "market_activity"
+            )
 
     resolved_analysis_id = (
         analysis_id
@@ -87,12 +122,14 @@ def build_etf_position_analysis(
     )
 
     resolved_notes = notes or (
-        "ETF product scale and observed secondary-market "
-        "activity provide context only. ETF liquidity can "
-        "also depend on market makers and underlying-market "
-        "liquidity. These observations do not by themselves "
-        "establish immediate executable depth for the "
-        "proposed position."
+        "ETF liquidity is assessed using position size "
+        "relative to product scale together with observed "
+        "secondary-market evidence and ETF market structure. "
+        "A sufficiently small position can support a strong "
+        "inference of practical liquidity without pretending "
+        "that position-size executable depth was directly "
+        "observed. Direct contradictory evidence, when "
+        "available, takes precedence."
     )
 
     return PositionAnalysis(
@@ -103,8 +140,12 @@ def build_etf_position_analysis(
         position_size_eur=position_size_eur,
         entry_supported=None,
         immediate_exit_supported=None,
-        position_pct_of_market=position_pct_of_market,
-        position_pct_reference=position_scale_reference,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
+        position_pct_reference=(
+            position_scale_reference
+        ),
         observed_daily_turnover_eur=(
             observed_daily_turnover_eur
         ),
@@ -114,7 +155,9 @@ def build_etf_position_analysis(
         liquidity_evidence_level=(
             liquidity_evidence_level
         ),
-        reference_yield_pct=snapshot.yield_value_pct,
+        reference_yield_pct=(
+            snapshot.yield_value_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
@@ -153,6 +196,37 @@ def build_sovereign_bill_position_analysis(
         and market_observation.ask_size is not None
     )
 
+    liquidity_evidence_level = None
+
+    strong_inferred_scale_support = (
+        position_pct_of_market is not None
+        and position_pct_of_market
+        <= STRONG_INFERRED_MAX_POSITION_PCT_OF_SCALE
+    )
+
+    if strong_inferred_scale_support:
+        liquidity_evidence_level = (
+            "sovereign_issue_scale"
+        )
+
+    elif (
+        market_observation.bid_price is not None
+        and market_observation.ask_price is not None
+        and market_observation.bid_size is not None
+        and market_observation.ask_size is not None
+    ):
+        liquidity_evidence_level = (
+            "displayed_quote_with_size"
+        )
+
+    elif (
+        market_observation.bid_price is not None
+        and market_observation.ask_price is not None
+    ):
+        liquidity_evidence_level = (
+            "displayed_quote"
+        )
+
     resolved_reference_yield_pct = (
         reference_yield_pct
         if reference_yield_pct is not None
@@ -168,11 +242,13 @@ def build_sovereign_bill_position_analysis(
     )
 
     resolved_notes = notes or (
-        "Issue outstanding provides sovereign-market scale "
-        "context but does not prove that the proposed "
-        "position can be executed immediately. Firm "
-        "position-size bid/ask and available-size evidence "
-        "remain required for executable economics."
+        "Sovereign-bill liquidity is assessed using the "
+        "proposed position relative to the outstanding issue "
+        "together with the existence of an observable "
+        "secondary market. A sufficiently small position can "
+        "support a strong inference of practical liquidity "
+        "without claiming that a firm position-size quote was "
+        "directly observed."
     )
 
     return PositionAnalysis(
@@ -185,9 +261,20 @@ def build_sovereign_bill_position_analysis(
         immediate_exit_supported=None,
         remaining_entry_capacity_eur=None,
         immediate_exit_coverage_pct=None,
-        position_pct_of_market=position_pct_of_market,
-        position_pct_reference="issue_outstanding",
-        reference_yield_pct=resolved_reference_yield_pct,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
+        position_pct_reference=(
+            "issue_outstanding"
+        ),
+        observed_daily_turnover_eur=None,
+        position_pct_of_daily_turnover=None,
+        liquidity_evidence_level=(
+            liquidity_evidence_level
+        ),
+        reference_yield_pct=(
+            resolved_reference_yield_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=(
@@ -269,12 +356,18 @@ def build_money_market_fund_position_analysis(
         immediate_exit_supported=None,
         remaining_entry_capacity_eur=None,
         immediate_exit_coverage_pct=None,
-        position_pct_of_market=position_pct_of_market,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
         position_pct_reference="fund_aum",
         observed_daily_turnover_eur=None,
         position_pct_of_daily_turnover=None,
-        liquidity_evidence_level="fund_dealing_terms",
-        reference_yield_pct=snapshot.yield_value_pct,
+        liquidity_evidence_level=(
+            "fund_dealing_terms"
+        ),
+        reference_yield_pct=(
+            snapshot.yield_value_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
@@ -304,7 +397,10 @@ def build_bank_deposit_position_analysis(
         interpretation.minimum_amount_supported
     )
 
-    if interpretation.maximum_amount_supported is False:
+    if (
+        interpretation.maximum_amount_supported
+        is False
+    ):
         entry_supported = False
 
     rejection_reason = None
@@ -315,7 +411,10 @@ def build_bank_deposit_position_analysis(
             "deposit amount"
         )
 
-    elif interpretation.maximum_amount_supported is False:
+    elif (
+        interpretation.maximum_amount_supported
+        is False
+    ):
         rejection_reason = (
             "position exceeds the published maximum "
             "deposit amount"
@@ -385,7 +484,9 @@ def build_bank_deposit_position_analysis(
         reference_yield_pct=(
             interpretation.published_rate_pct
         ),
-        executable_yield_pct=executable_yield_pct,
+        executable_yield_pct=(
+            executable_yield_pct
+        ),
         position_adjusted_yield_pct=None,
         executable_economics_known=(
             executable_economics_known
@@ -405,7 +506,8 @@ def build_aave_position_analysis(
     )
 
     immediate_exit_supported = (
-        support.immediate_exit_coverage_pct >= 100
+        support.immediate_exit_coverage_pct
+        >= 100
     )
 
     position_pct_of_market = None
@@ -421,7 +523,8 @@ def build_aave_position_analysis(
 
     if not support.entry_supported:
         rejection_reason = (
-            "position exceeds remaining protocol supply capacity"
+            "position exceeds remaining protocol "
+            "supply capacity"
         )
 
     notes = (
@@ -448,16 +551,24 @@ def build_aave_position_analysis(
         ),
         position_size_eur=position_size_eur,
         entry_supported=support.entry_supported,
-        immediate_exit_supported=immediate_exit_supported,
+        immediate_exit_supported=(
+            immediate_exit_supported
+        ),
         remaining_entry_capacity_eur=(
             support.remaining_entry_capacity
         ),
         immediate_exit_coverage_pct=(
             support.immediate_exit_coverage_pct
         ),
-        position_pct_of_market=position_pct_of_market,
-        position_pct_reference="current_total_supplied",
-        reference_yield_pct=observation.supply_apy_pct,
+        position_pct_of_market=(
+            position_pct_of_market
+        ),
+        position_pct_reference=(
+            "current_total_supplied"
+        ),
+        reference_yield_pct=(
+            observation.supply_apy_pct
+        ),
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
@@ -476,16 +587,21 @@ def build_btf_position_analysis(
         snapshot=snapshot,
         market_observation=market_observation,
         position_size_eur=position_size_eur,
-        reference_yield_pct=market_derived_yield_pct,
+        reference_yield_pct=(
+            market_derived_yield_pct
+        ),
         analysis_id=(
             f"fr_btf_2027_03_10_"
             f"{int(position_size_eur)}"
         ),
         notes=(
-            "Issue size supports broad capacity context, "
-            "but does not prove that the full proposed position "
-            "can be executed immediately at the observed price. "
-            "Firm bid/ask and available size remain unknown."
+            "The proposed position is evaluated relative "
+            "to the outstanding sovereign issue and the "
+            "observable secondary market. A sufficiently "
+            "small position may support a strong inferred "
+            "liquidity conclusion without claiming that "
+            "firm position-size executable depth was "
+            "directly observed."
         ),
     )
 
@@ -498,16 +614,21 @@ def build_xeon_position_analysis(
     return build_etf_position_analysis(
         snapshot=snapshot,
         position_size_eur=position_size_eur,
-        position_scale_eur=snapshot.fund_aum_eur,
+        position_scale_eur=(
+            snapshot.fund_aum_eur
+        ),
         position_scale_reference="fund_aum",
         market_observation=market_observation,
         analysis_id=(
             f"xeon_{int(position_size_eur)}"
         ),
         notes=(
-            "Fund AUM and observed daily market activity provide "
-            "scale context only. Daily turnover does not establish "
-            "immediate executable depth for this position."
+            "XEON position size is evaluated relative to "
+            "fund scale together with observed Xetra market "
+            "evidence and ETF market structure. This may "
+            "support a strong inferred liquidity conclusion "
+            "without pretending that a firm quote for the "
+            "full position was directly observed."
         ),
     )
 
@@ -520,17 +641,23 @@ def build_ernx_position_analysis(
     return build_etf_position_analysis(
         snapshot=snapshot,
         position_size_eur=position_size_eur,
-        position_scale_eur=snapshot.share_class_aum_eur,
-        position_scale_reference="share_class_aum",
+        position_scale_eur=(
+            snapshot.share_class_aum_eur
+        ),
+        position_scale_reference=(
+            "share_class_aum"
+        ),
         market_observation=market_observation,
         analysis_id=(
             f"ernx_{int(position_size_eur)}"
         ),
         notes=(
-            "Share-class AUM and observed daily market activity "
-            "provide scale context only. ETF liquidity can also "
-            "depend on market makers and underlying liquidity, so "
-            "daily screen turnover does not establish immediate "
-            "executable depth."
+            "ERNX position size is evaluated relative to "
+            "share-class scale together with observed "
+            "secondary-market evidence and ETF market "
+            "structure. This may support a strong inferred "
+            "liquidity conclusion without claiming that "
+            "firm position-size executable depth was "
+            "directly observed."
         ),
     )

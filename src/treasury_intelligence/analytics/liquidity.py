@@ -16,21 +16,35 @@ LIQUIDITY_EVIDENCE_RANKS = {
     "market_activity": 1,
     "displayed_quote": 2,
     "displayed_quote_with_size": 3,
-    "executable_quote": 4,
-    "position_depth": 5,
+    "strong_inferred": 4,
+    "executable_quote": 5,
+    "position_depth": 6,
 }
+
+
+STRONG_INFERRED_POSITION_LEVELS = (
+    "etf_scale_and_market_structure",
+    "sovereign_issue_scale",
+)
 
 
 def classify_liquidity_evidence(
     market_observation: MarketObservation | None,
     position: PositionAnalysis,
 ) -> str:
-    if position.immediate_exit_supported is not None:
-        if (
-            position.immediate_exit_coverage_pct
-            is not None
-        ):
-            return "position_depth"
+    if (
+        position.immediate_exit_supported
+        is not None
+        and position.immediate_exit_coverage_pct
+        is not None
+    ):
+        return "position_depth"
+
+    if (
+        position.liquidity_evidence_level
+        in STRONG_INFERRED_POSITION_LEVELS
+    ):
+        return "strong_inferred"
 
     if (
         position.liquidity_evidence_level
@@ -56,8 +70,10 @@ def classify_liquidity_evidence(
         return "displayed_quote"
 
     if (
-        market_observation.daily_turnover_eur is not None
-        or market_observation.daily_volume_units is not None
+        market_observation.daily_turnover_eur
+        is not None
+        or market_observation.daily_volume_units
+        is not None
     ):
         return "market_activity"
 
@@ -69,36 +85,49 @@ def strongest_supported_claim(
 ) -> str:
     claims = {
         "none": (
-            "No direct liquidity evidence is available."
+            "No direct or sufficiently strong inferred "
+            "liquidity evidence is available."
         ),
         "fund_dealing_terms": (
-            "Published fund subscription or redemption dealing "
-            "terms provide evidence of the fund's normal dealing "
-            "process, but they do not establish unconditional "
-            "immediate liquidity for the proposed position."
-        ),
-        "market_activity": (
-            "The market shows observed trading activity, but the "
-            "observation does not establish executable liquidity "
+            "Published fund subscription or redemption "
+            "dealing terms provide evidence of the fund's "
+            "normal dealing process, but they do not "
+            "establish unconditional immediate liquidity "
             "for the proposed position."
         ),
+        "market_activity": (
+            "The market shows observed trading activity, "
+            "but the observation alone does not establish "
+            "practical liquidity for the proposed position."
+        ),
         "displayed_quote": (
-            "A two-sided public quote is observable, but displayed "
-            "prices without size do not establish executable "
-            "liquidity for the proposed position."
+            "A two-sided public quote is observable, but "
+            "displayed prices without size do not by "
+            "themselves establish practical liquidity for "
+            "the proposed position."
         ),
         "displayed_quote_with_size": (
-            "A two-sided quote with displayed size is observable, "
-            "but displayed size alone does not prove that the full "
-            "proposed position can be exited immediately."
+            "A two-sided quote with displayed size is "
+            "observable, but displayed size alone does not "
+            "prove that the full proposed position can be "
+            "exited immediately."
+        ),
+        "strong_inferred": (
+            "Multiple structural and position-size signals "
+            "support a strong inference that the modeled "
+            "position is practically liquid under normal "
+            "market conditions. This is not a direct "
+            "position-size executable quote or guarantee."
         ),
         "executable_quote": (
-            "Executable pricing evidence is available, but full "
-            "position-size exit capacity has not yet been proven."
+            "Executable pricing evidence is available, but "
+            "full position-size exit capacity has not yet "
+            "been directly proven."
         ),
         "position_depth": (
-            "Position-size-specific liquidity evidence is available "
-            "and can support an immediate-liquidity conclusion."
+            "Direct position-size-specific liquidity "
+            "evidence is available and supports a direct "
+            "immediate-liquidity conclusion."
         ),
     }
 
@@ -110,39 +139,59 @@ def missing_liquidity_evidence(
 ) -> str | None:
     missing = {
         "none": (
-            "Obtain public liquidity evidence, then progress "
-            "toward position-size-specific executable liquidity "
-            "evidence."
+            "Obtain market, product-scale, dealing, or "
+            "position-size evidence sufficient to support "
+            "either a strong inferred or direct liquidity "
+            "conclusion."
         ),
         "fund_dealing_terms": (
-            "Published fund dealing terms establish the normal "
-            "subscription or redemption process but not guaranteed "
-            "position-size immediate exit. Obtain stronger evidence "
-            "on redemption capacity, settlement behavior, gates, "
-            "suspension conditions, or position-size liquidity "
-            "where required by the treasury mandate."
+            "Published fund dealing terms establish the "
+            "normal subscription or redemption process but "
+            "not guaranteed immediate exit. Obtain stronger "
+            "evidence on redemption capacity, settlement "
+            "behavior, gates, suspension conditions, or "
+            "position-size liquidity where required."
         ),
         "market_activity": (
-            "Obtain a current two-sided quote and displayed size "
-            "where available, followed by position-size-specific "
-            "executable depth."
+            "Combine market activity with relevant "
+            "position-size and product-structure evidence, "
+            "or obtain stronger executable depth."
         ),
         "displayed_quote": (
-            "Obtain displayed bid/ask size or stronger executable "
-            "depth evidence for the proposed position."
+            "Obtain displayed size, broader structural "
+            "liquidity evidence, or stronger executable "
+            "depth for the proposed position."
         ),
         "displayed_quote_with_size": (
-            "Obtain position-size-specific executable depth or an "
-            "equivalent firm execution indication."
+            "Obtain position-size executable depth or "
+            "sufficient structural and scale evidence to "
+            "support a strong inferred conclusion."
         ),
+        "strong_inferred": None,
         "executable_quote": (
-            "Obtain evidence that executable liquidity covers the "
-            "full proposed position size."
+            "Obtain evidence that executable liquidity "
+            "covers the full proposed position size."
         ),
         "position_depth": None,
     }
 
     return missing[evidence_level]
+
+
+def _inferred_immediate_liquidity(
+    evidence_level: str,
+    position: PositionAnalysis,
+) -> bool | None:
+    if (
+        position.immediate_exit_supported
+        is not None
+    ):
+        return position.immediate_exit_supported
+
+    if evidence_level == "strong_inferred":
+        return True
+
+    return None
 
 
 def assess_liquidity_evidence(
@@ -154,9 +203,11 @@ def assess_liquidity_evidence(
         position=position,
     )
 
-    evidence_rank = LIQUIDITY_EVIDENCE_RANKS[
-        evidence_level
-    ]
+    evidence_rank = (
+        LIQUIDITY_EVIDENCE_RANKS[
+            evidence_level
+        ]
+    )
 
     market_activity_observed = (
         evidence_level
@@ -164,6 +215,7 @@ def assess_liquidity_evidence(
             "market_activity",
             "displayed_quote",
             "displayed_quote_with_size",
+            "strong_inferred",
             "executable_quote",
             "position_depth",
         )
@@ -200,20 +252,38 @@ def assess_liquidity_evidence(
         evidence_level == "position_depth"
     )
 
+    immediate_liquidity_supported = (
+        _inferred_immediate_liquidity(
+            evidence_level=evidence_level,
+            position=position,
+        )
+    )
+
     sufficient_for_immediate_liquidity = (
-        position_depth_observed
-        and position.immediate_exit_supported
+        immediate_liquidity_supported
         is not None
+        and evidence_level
+        in (
+            "strong_inferred",
+            "position_depth",
+        )
     )
 
     return LiquidityEvidenceAssessment(
         assessment_id=(
-            f"{position.analysis_id}_liquidity_evidence"
+            f"{position.analysis_id}_"
+            "liquidity_evidence"
         ),
-        instrument_id=position.instrument_id,
+        instrument_id=(
+            position.instrument_id
+        ),
         market_id=position.market_id,
-        access_route_id=position.access_route_id,
-        position_size_eur=position.position_size_eur,
+        access_route_id=(
+            position.access_route_id
+        ),
+        position_size_eur=(
+            position.position_size_eur
+        ),
         evidence_level=evidence_level,
         evidence_rank=evidence_rank,
         market_activity_observed=(
@@ -232,7 +302,7 @@ def assess_liquidity_evidence(
             position_depth_observed
         ),
         immediate_liquidity_supported=(
-            position.immediate_exit_supported
+            immediate_liquidity_supported
         ),
         sufficient_for_immediate_liquidity=(
             sufficient_for_immediate_liquidity
@@ -248,9 +318,12 @@ def assess_liquidity_evidence(
             )
         ),
         notes=(
-            "Evidence strength and liquidity conclusion are kept "
-            "separate. Fund dealing terms, market activity, or "
-            "displayed quotes can improve evidence without proving "
-            "that the proposed position can be exited immediately."
+            "Liquidity conclusions distinguish direct "
+            "position-depth evidence from strong inferred "
+            "evidence. Strong inference may use position "
+            "size, product or issue scale, market structure, "
+            "and observable secondary-market evidence. "
+            "Direct contradictory evidence always takes "
+            "precedence over inference."
         ),
     )

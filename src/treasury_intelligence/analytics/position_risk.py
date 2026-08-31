@@ -22,7 +22,10 @@ from treasury_intelligence.models.risk_assessments import (
 
 
 def _index_risk_assessments(
-    risk_assessments: tuple[RiskAssessment, ...],
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
 ) -> dict[str, RiskAssessment]:
     indexed = {}
 
@@ -54,9 +57,14 @@ def _index_risk_assessments(
 
 
 def _validate_entity_alignment(
-    risk_assessments: tuple[RiskAssessment, ...],
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
     position: PositionAnalysis,
-    liquidity_assessment: LiquidityEvidenceAssessment,
+    liquidity_assessment: (
+        LiquidityEvidenceAssessment
+    ),
 ) -> None:
     for risk_assessment in risk_assessments:
         if (
@@ -64,8 +72,8 @@ def _validate_entity_alignment(
             != position.instrument_id
         ):
             raise ValueError(
-                "Risk assessment instrument does not match "
-                "position analysis."
+                "Risk assessment instrument does not "
+                "match position analysis."
             )
 
         if (
@@ -73,8 +81,8 @@ def _validate_entity_alignment(
             != position.market_id
         ):
             raise ValueError(
-                "Risk assessment market does not match "
-                "position analysis."
+                "Risk assessment market does not "
+                "match position analysis."
             )
 
     if (
@@ -82,8 +90,8 @@ def _validate_entity_alignment(
         != position.instrument_id
     ):
         raise ValueError(
-            "Liquidity assessment instrument does not match "
-            "position analysis."
+            "Liquidity assessment instrument does not "
+            "match position analysis."
         )
 
     if (
@@ -91,8 +99,8 @@ def _validate_entity_alignment(
         != position.market_id
     ):
         raise ValueError(
-            "Liquidity assessment market does not match "
-            "position analysis."
+            "Liquidity assessment market does not "
+            "match position analysis."
         )
 
     if (
@@ -123,10 +131,16 @@ def _build_non_position_sensitive_assessment(
             f"{position.analysis_id}_"
             f"{base_assessment.risk_dimension}_risk"
         ),
-        instrument_id=position.instrument_id,
+        instrument_id=(
+            position.instrument_id
+        ),
         market_id=position.market_id,
-        access_route_id=position.access_route_id,
-        position_size_eur=position.position_size_eur,
+        access_route_id=(
+            position.access_route_id
+        ),
+        position_size_eur=(
+            position.position_size_eur
+        ),
         risk_dimension=(
             base_assessment.risk_dimension
         ),
@@ -141,10 +155,11 @@ def _build_non_position_sensitive_assessment(
             base_assessment.evidence_sufficient
         ),
         rationale=(
-            "No position-size-specific modifier is currently "
-            "modeled for this risk dimension. The instrument-"
-            "level qualitative assessment is preserved without "
-            "changing it solely because of position size."
+            "No position-size-specific modifier is "
+            "currently modeled for this risk dimension. "
+            "The instrument-level qualitative assessment "
+            "is preserved without changing it solely "
+            "because of position size."
         ),
         supporting_risk_assessment_id=(
             base_assessment.assessment_id
@@ -153,8 +168,55 @@ def _build_non_position_sensitive_assessment(
             position.analysis_id
         ),
         notes=(
-            "Future evidence may make this dimension position-"
-            "sensitive. No such rule is assumed in 4C."
+            "Future evidence may make this dimension "
+            "position-sensitive. No such rule is assumed "
+            "unless it is modeled explicitly."
+        ),
+    )
+
+
+def _unknown_liquidity_assessment(
+    base_assessment: RiskAssessment,
+    position: PositionAnalysis,
+    liquidity_assessment: (
+        LiquidityEvidenceAssessment
+    ),
+) -> PositionRiskAssessment:
+    return PositionRiskAssessment(
+        assessment_id=(
+            f"{position.analysis_id}_"
+            "liquidity_risk"
+        ),
+        instrument_id=(
+            position.instrument_id
+        ),
+        market_id=position.market_id,
+        access_route_id=(
+            position.access_route_id
+        ),
+        position_size_eur=(
+            position.position_size_eur
+        ),
+        risk_dimension="liquidity",
+        base_risk_level=(
+            base_assessment.risk_level
+        ),
+        position_sensitive=True,
+        position_risk_status="unknown",
+        evidence_sufficient=False,
+        rationale=(
+            "Available liquidity evidence is not strong "
+            "enough to support either a direct or strong "
+            "inferred conclusion for the modeled position."
+        ),
+        supporting_risk_assessment_id=(
+            base_assessment.assessment_id
+        ),
+        supporting_position_analysis_id=(
+            position.analysis_id
+        ),
+        supporting_liquidity_assessment_id=(
+            liquidity_assessment.assessment_id
         ),
     )
 
@@ -162,43 +224,19 @@ def _build_non_position_sensitive_assessment(
 def _build_liquidity_position_assessment(
     base_assessment: RiskAssessment,
     position: PositionAnalysis,
-    liquidity_assessment: LiquidityEvidenceAssessment,
+    liquidity_assessment: (
+        LiquidityEvidenceAssessment
+    ),
 ) -> PositionRiskAssessment:
     if (
         not liquidity_assessment
         .sufficient_for_immediate_liquidity
     ):
-        return PositionRiskAssessment(
-            assessment_id=(
-                f"{position.analysis_id}_liquidity_risk"
-            ),
-            instrument_id=position.instrument_id,
-            market_id=position.market_id,
-            access_route_id=position.access_route_id,
-            position_size_eur=position.position_size_eur,
-            risk_dimension="liquidity",
-            base_risk_level=(
-                base_assessment.risk_level
-            ),
-            position_sensitive=True,
-            position_risk_status="unknown",
-            evidence_sufficient=False,
-            rationale=(
-                "Position-size liquidity evidence is not strong "
-                "enough to determine whether the full position "
-                "can be exited immediately. Market activity, "
-                "fund size, or displayed trading activity alone "
-                "does not establish position-size executable "
-                "depth."
-            ),
-            supporting_risk_assessment_id=(
-                base_assessment.assessment_id
-            ),
-            supporting_position_analysis_id=(
-                position.analysis_id
-            ),
-            supporting_liquidity_assessment_id=(
-                liquidity_assessment.assessment_id
+        return _unknown_liquidity_assessment(
+            base_assessment=base_assessment,
+            position=position,
+            liquidity_assessment=(
+                liquidity_assessment
             ),
         )
 
@@ -207,24 +245,81 @@ def _build_liquidity_position_assessment(
         .immediate_liquidity_supported
         is True
     ):
-        coverage = (
-            position.immediate_exit_coverage_pct
-        )
+        if (
+            liquidity_assessment.evidence_level
+            == "position_depth"
+        ):
+            coverage = (
+                position
+                .immediate_exit_coverage_pct
+            )
 
-        coverage_text = (
-            f"{coverage:.2f}%"
-            if coverage is not None
-            else "at least full position coverage"
-        )
+            coverage_text = (
+                f"{coverage:.2f}%"
+                if coverage is not None
+                else (
+                    "at least full position "
+                    "coverage"
+                )
+            )
+
+            rationale = (
+                "Direct position-size liquidity evidence "
+                "supports immediate exit of the modeled "
+                "position. Observed coverage: "
+                f"{coverage_text}."
+            )
+
+            notes = (
+                "This is a direct position-depth "
+                "conclusion based on observed "
+                "position-specific evidence."
+            )
+
+        elif (
+            liquidity_assessment.evidence_level
+            == "strong_inferred"
+        ):
+            rationale = (
+                "Multiple structural and position-size "
+                "signals support a strong inference that "
+                "the modeled position can be exited "
+                "promptly under normal market conditions. "
+                "This conclusion is not presented as a "
+                "firm position-size executable quote."
+            )
+
+            notes = (
+                "Strong inferred liquidity is weaker than "
+                "direct executable depth but sufficiently "
+                "strong for V1 treasury analysis when the "
+                "position is small relative to the relevant "
+                "market or product scale and supporting "
+                "market-structure evidence exists."
+            )
+
+        else:
+            raise ValueError(
+                "Supported immediate liquidity requires "
+                "either strong_inferred or position_depth "
+                "evidence."
+            )
 
         return PositionRiskAssessment(
             assessment_id=(
-                f"{position.analysis_id}_liquidity_risk"
+                f"{position.analysis_id}_"
+                "liquidity_risk"
             ),
-            instrument_id=position.instrument_id,
+            instrument_id=(
+                position.instrument_id
+            ),
             market_id=position.market_id,
-            access_route_id=position.access_route_id,
-            position_size_eur=position.position_size_eur,
+            access_route_id=(
+                position.access_route_id
+            ),
+            position_size_eur=(
+                position.position_size_eur
+            ),
             risk_dimension="liquidity",
             base_risk_level=(
                 base_assessment.risk_level
@@ -232,11 +327,7 @@ def _build_liquidity_position_assessment(
             position_sensitive=True,
             position_risk_status="supported",
             evidence_sufficient=True,
-            rationale=(
-                "Direct position-size liquidity evidence "
-                "supports immediate exit of the modeled "
-                f"position. Observed coverage: {coverage_text}."
-            ),
+            rationale=rationale,
             supporting_risk_assessment_id=(
                 base_assessment.assessment_id
             ),
@@ -246,12 +337,7 @@ def _build_liquidity_position_assessment(
             supporting_liquidity_assessment_id=(
                 liquidity_assessment.assessment_id
             ),
-            notes=(
-                "Supported describes the observed position-size "
-                "liquidity condition. It does not convert the "
-                "instrument-level qualitative liquidity risk "
-                "assessment into low risk."
-            ),
+            notes=notes,
         )
 
     if (
@@ -266,28 +352,40 @@ def _build_liquidity_position_assessment(
         coverage_text = (
             f"{coverage:.2f}%"
             if coverage is not None
-            else "less than full position coverage"
+            else (
+                "less than full position coverage"
+            )
         )
 
         return PositionRiskAssessment(
             assessment_id=(
-                f"{position.analysis_id}_liquidity_risk"
+                f"{position.analysis_id}_"
+                "liquidity_risk"
             ),
-            instrument_id=position.instrument_id,
+            instrument_id=(
+                position.instrument_id
+            ),
             market_id=position.market_id,
-            access_route_id=position.access_route_id,
-            position_size_eur=position.position_size_eur,
+            access_route_id=(
+                position.access_route_id
+            ),
+            position_size_eur=(
+                position.position_size_eur
+            ),
             risk_dimension="liquidity",
             base_risk_level=(
                 base_assessment.risk_level
             ),
             position_sensitive=True,
-            position_risk_status="not_supported",
+            position_risk_status=(
+                "not_supported"
+            ),
             evidence_sufficient=True,
             rationale=(
-                "Direct position-size liquidity evidence shows "
-                "that the modeled position cannot currently be "
-                "fully exited immediately. Observed coverage: "
+                "Direct position-size liquidity evidence "
+                "shows that the modeled position cannot "
+                "currently be fully exited immediately. "
+                "Observed coverage: "
                 f"{coverage_text}."
             ),
             supporting_risk_assessment_id=(
@@ -300,53 +398,40 @@ def _build_liquidity_position_assessment(
                 liquidity_assessment.assessment_id
             ),
             notes=(
-                "Not supported is a position-specific observed "
-                "liquidity conclusion. It is not an arbitrary "
-                "conversion into a high or very-high qualitative "
-                "risk score."
+                "Direct contradictory liquidity evidence "
+                "takes precedence over any structural or "
+                "scale-based inference."
             ),
         )
 
-    return PositionRiskAssessment(
-        assessment_id=(
-            f"{position.analysis_id}_liquidity_risk"
-        ),
-        instrument_id=position.instrument_id,
-        market_id=position.market_id,
-        access_route_id=position.access_route_id,
-        position_size_eur=position.position_size_eur,
-        risk_dimension="liquidity",
-        base_risk_level=(
-            base_assessment.risk_level
-        ),
-        position_sensitive=True,
-        position_risk_status="unknown",
-        evidence_sufficient=False,
-        rationale=(
-            "The liquidity evidence layer did not produce a "
-            "position-size immediate-liquidity conclusion."
-        ),
-        supporting_risk_assessment_id=(
-            base_assessment.assessment_id
-        ),
-        supporting_position_analysis_id=(
-            position.analysis_id
-        ),
-        supporting_liquidity_assessment_id=(
-            liquidity_assessment.assessment_id
+    return _unknown_liquidity_assessment(
+        base_assessment=base_assessment,
+        position=position,
+        liquidity_assessment=(
+            liquidity_assessment
         ),
     )
 
 
 def build_position_risk_assessments(
-    risk_assessments: tuple[RiskAssessment, ...],
+    risk_assessments: tuple[
+        RiskAssessment,
+        ...
+    ],
     position: PositionAnalysis,
-    liquidity_assessment: LiquidityEvidenceAssessment,
-) -> tuple[PositionRiskAssessment, ...]:
+    liquidity_assessment: (
+        LiquidityEvidenceAssessment
+    ),
+) -> tuple[
+    PositionRiskAssessment,
+    ...
+]:
     _validate_entity_alignment(
         risk_assessments=risk_assessments,
         position=position,
-        liquidity_assessment=liquidity_assessment,
+        liquidity_assessment=(
+            liquidity_assessment
+        ),
     )
 
     indexed = _index_risk_assessments(
@@ -363,17 +448,22 @@ def build_position_risk_assessments(
         if risk_dimension == "liquidity":
             result = (
                 _build_liquidity_position_assessment(
-                    base_assessment=base_assessment,
+                    base_assessment=(
+                        base_assessment
+                    ),
                     position=position,
                     liquidity_assessment=(
                         liquidity_assessment
                     ),
                 )
             )
+
         else:
             result = (
                 _build_non_position_sensitive_assessment(
-                    base_assessment=base_assessment,
+                    base_assessment=(
+                        base_assessment
+                    ),
                     position=position,
                 )
             )
@@ -392,13 +482,16 @@ def get_liquidity_position_risk(
     matches = tuple(
         assessment
         for assessment in assessments
-        if assessment.risk_dimension == "liquidity"
+        if (
+            assessment.risk_dimension
+            == "liquidity"
+        )
     )
 
     if len(matches) != 1:
         raise ValueError(
-            "Expected exactly one liquidity position-risk "
-            "assessment."
+            "Expected exactly one liquidity "
+            "position-risk assessment."
         )
 
     return matches[0]
