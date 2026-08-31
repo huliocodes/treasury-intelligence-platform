@@ -2,40 +2,48 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from treasury_intelligence.models.returns import (
+    ReturnComponent,
+)
 from treasury_intelligence.sources.ibkr import (
     BrokerRecurringAccessCostEvidence,
 )
 
 
-XEON_ACCESS_FEE_COMPONENT_ID = (
-    "xeon_access_fee"
-)
-
-
-def apply_xeon_access_cost_evidence(
-    components: tuple,
+def apply_access_cost_evidence(
+    components: tuple[ReturnComponent, ...],
     access_cost_evidence: BrokerRecurringAccessCostEvidence,
-) -> tuple:
+    component_id: str,
+    label: str | None = None,
+) -> tuple[ReturnComponent, ...]:
     if not components:
         raise ValueError(
             "Return components are required."
         )
 
+    if not component_id:
+        raise ValueError(
+            "component_id is required."
+        )
+
     matching_components = tuple(
         component
         for component in components
-        if getattr(
-            component,
-            "component_id",
-            None,
-        )
-        == XEON_ACCESS_FEE_COMPONENT_ID
+        if component.component_id == component_id
     )
 
     if len(matching_components) != 1:
         raise ValueError(
-            "Exactly one XEON access-fee "
+            "Exactly one matching access-fee "
             "component is required."
+        )
+
+    access_fee_component = matching_components[0]
+
+    if access_fee_component.component_type != "access_fee":
+        raise ValueError(
+            "The matching return component must "
+            "have component_type='access_fee'."
         )
 
     if (
@@ -43,9 +51,11 @@ def apply_xeon_access_cost_evidence(
         .generic_custody_fee_identified
     ):
         raise ValueError(
-            "Cannot apply zero recurring access "
-            "cost when a generic custody fee has "
-            "been identified for the route."
+            "Cannot apply recurring access-cost "
+            "evidence when a generic custody fee "
+            "has been identified but is not "
+            "included in the modeled recurring "
+            "access cost."
         )
 
     source_reference = None
@@ -56,57 +66,77 @@ def apply_xeon_access_cost_evidence(
             .source_references[0]
         )
 
-    enriched_components = []
+    enriched_label = label
+
+    if enriched_label is None:
+        enriched_label = (
+            "Published recurring access cost for "
+            f"{access_cost_evidence.product_scope}"
+        )
+
+    evidence_notes = (
+        access_cost_evidence.notes
+        or (
+            "Recurring access-cost evidence is "
+            "applied only to the modeled access "
+            "route and product scope. Specific "
+            "future account terms may still "
+            "require execution-stage confirmation."
+        )
+    )
+
+    enriched_components: list[ReturnComponent] = []
 
     for component in components:
-        if (
-            component.component_id
-            != XEON_ACCESS_FEE_COMPONENT_ID
-        ):
+        if component.component_id != component_id:
             enriched_components.append(
                 component
             )
             continue
 
-        enriched_component = replace(
-            component,
-            label=(
-                "Published recurring IBKR access "
-                "cost for Germany/Xetra ETF route"
-            ),
-            status="published",
-            basis="annualized_pct",
-            value=(
-                access_cost_evidence
-                .recurring_access_cost_pct
-            ),
-            source="Interactive Brokers",
-            source_url=source_reference,
-            notes=(
-                "IBKR public pricing supports a "
-                "zero recurring access-cost "
-                "assumption for the modeled "
-                "organization-account "
-                "Germany/Xetra ETF route: account "
-                "minimum and inactivity fee are "
-                "published as zero, platform fees "
-                "are stated as absent, and no "
-                "generic German/Xetra ETF custody "
-                "fee is identified in the current "
-                "published Other Fees schedule. "
-                "This does not represent approval "
-                "or contractual confirmation for "
-                "a specific future Slovenian "
-                "d.o.o. account. Specific-account "
-                "terms remain an execution-stage "
-                "confirmation."
-            ),
-        )
-
         enriched_components.append(
-            enriched_component
+            replace(
+                component,
+                label=enriched_label,
+                status="published",
+                basis="annualized_pct",
+                value=(
+                    access_cost_evidence
+                    .recurring_access_cost_pct
+                ),
+                source=access_cost_evidence.broker,
+                source_url=source_reference,
+                notes=evidence_notes,
+            )
         )
 
-    return tuple(
-        enriched_components
+    return tuple(enriched_components)
+
+
+XEON_ACCESS_FEE_COMPONENT_ID = (
+    "xeon_access_fee"
+)
+
+
+def apply_xeon_access_cost_evidence(
+    components: tuple[ReturnComponent, ...],
+    access_cost_evidence: BrokerRecurringAccessCostEvidence,
+) -> tuple[ReturnComponent, ...]:
+    """
+    Temporary compatibility wrapper.
+
+    XEON callers will be migrated to the generic
+    apply_access_cost_evidence() interface during
+    architecture consolidation. New analytics code
+    should not use this wrapper.
+    """
+
+    return apply_access_cost_evidence(
+        components=components,
+        access_cost_evidence=access_cost_evidence,
+        component_id=XEON_ACCESS_FEE_COMPONENT_ID,
+        label=(
+            "Published recurring IBKR access "
+            "cost for Germany/Xetra ETF route"
+        ),
     )
