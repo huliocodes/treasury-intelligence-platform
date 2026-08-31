@@ -215,6 +215,26 @@ def build_conservative_return_components(
         )
     )
 
+    if market.venue_type == "defi_protocol":
+        components.append(
+            ReturnComponent(
+                component_id=(
+                    f"{snapshot.snapshot_id}_network_cost"
+                ),
+                component_type="network_cost",
+                label="Blockchain network transaction cost",
+                status="unknown",
+                basis="fixed_eur",
+                value=None,
+                notes=(
+                    "The opportunity uses a DeFi protocol. "
+                    "Position-specific blockchain transaction "
+                    "costs have not yet been established and "
+                    "are therefore not assumed to be zero."
+                ),
+            )
+        )
+
     if (
         instrument.currency == "EUR"
         and market.trading_currency == "EUR"
