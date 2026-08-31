@@ -27,16 +27,16 @@ from treasury_intelligence.analytics.treasury_decision_reports import (
     build_treasury_decision_report,
 )
 
+from treasury_intelligence.analytics.universe_candidates import (
+    analyze_opportunity_universe_at_position_size,
+)
+
 from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
 
-from treasury_intelligence.models.portfolio import (
-    PortfolioCandidateAssessment,
-)
 
-
-OPPORTUNITIES = (
+ALLOCATION_OPPORTUNITIES = (
     AllocationOpportunity(
         key="ernx",
         label="ERNX",
@@ -61,132 +61,13 @@ OPPORTUNITIES = (
 )
 
 
-def build_summary_candidate(
-    *,
-    assessment_id: str,
-    label: str,
-    candidate_status: str,
-) -> PortfolioCandidateAssessment:
-    recommendation_ready = (
-        candidate_status == "recommendation_ready"
-    )
-
-    blocking_reasons = (
-        ("Blocked by current mandate or evidence.",)
-        if candidate_status == "blocked"
-        else ()
-    )
-
-    evidence_requirements = (
-        ("Additional evidence required.",)
-        if candidate_status == "needs_evidence"
-        else ()
-    )
-
-    return PortfolioCandidateAssessment(
-        assessment_id=assessment_id,
-        mandate_id=(
-            MODEL_COMPANY_MANDATE.mandate_id
-        ),
-        instrument_id=(
-            f"{assessment_id}_instrument"
-        ),
-        market_id=f"{assessment_id}_market",
-        access_route_id=(
-            f"{assessment_id}_access"
-        ),
-        label=label,
-        position_size_eur=100_000.0,
-        eligibility_status=(
-            "eligible"
-            if recommendation_ready
-            else "not_ready"
-        ),
-        liquidity_position_status=(
-            "supported"
-            if recommendation_ready
-            else "unknown"
-        ),
-        economics_status=(
-            "sufficient"
-            if recommendation_ready
-            else "incomplete"
-        ),
-        base_risk_unknown_dimension_count=(
-            0 if recommendation_ready else 1
-        ),
-        defensible_return_pct=(
-            0.0
-            if recommendation_ready
-            else None
-        ),
-        defensible_return_measure=(
-            "diagnostic"
-            if recommendation_ready
-            else None
-        ),
-        candidate_status=candidate_status,
-        blocking_reasons=blocking_reasons,
-        evidence_requirements=(
-            evidence_requirements
-        ),
-        recommendation_ready=(
-            recommendation_ready
-        ),
-        notes=(
-            "Universe-summary fixture only. Actual "
-            "opportunity status is regression-tested by "
-            "inspect_universe_position_matrix.py."
-        ),
-    )
-
-
 universe_candidates = (
-    build_summary_candidate(
-        assessment_id="summary_ernx",
-        label="ERNX",
-        candidate_status="recommendation_ready",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_btf",
-        label="French BTF",
-        candidate_status="recommendation_ready",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_bubill",
-        label="German Bubill",
-        candidate_status="recommendation_ready",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_amundi",
-        label="Amundi Overnight",
-        candidate_status="needs_evidence",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_xeon",
-        label="XEON",
-        candidate_status="blocked",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_aave",
-        label="Aave V3 Base EURC",
-        candidate_status="blocked",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_addiko",
-        label="Addiko Deposit",
-        candidate_status="blocked",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_blackrock",
-        label="BlackRock MMF",
-        candidate_status="blocked",
-    ),
-    build_summary_candidate(
-        assessment_id="summary_spiko",
-        label="Spiko",
-        candidate_status="blocked",
-    ),
+    analyze_opportunity_universe_at_position_size(
+        position_size_eur=(
+            MODEL_COMPANY_MANDATE.treasury_capital_eur
+        ),
+        mandate=MODEL_COMPANY_MANDATE,
+    )
 )
 
 
@@ -196,7 +77,7 @@ construction, selected_candidates = (
             "model_company_5m_return_priority"
         ),
         mandate=MODEL_COMPANY_MANDATE,
-        opportunities=OPPORTUNITIES,
+        opportunities=ALLOCATION_OPPORTUNITIES,
         notes=(
             "Return-priority V1 construction using the "
             "currently recommendation-ready opportunity "
@@ -240,9 +121,10 @@ report = build_treasury_decision_report(
     recommendation=recommendation,
     approval=approval,
     notes=(
-        "Initial V1 treasury decision report. Execution "
-        "and operational implementation remain outside "
-        "the current project scope."
+        "Initial V1 treasury decision report using "
+        "real production universe assessments. "
+        "Execution and operational implementation "
+        "remain outside the current project scope."
     ),
 )
 
@@ -276,7 +158,7 @@ print(
 
 print()
 
-print("===== UNIVERSE =====")
+print("===== REAL EUR 5M UNIVERSE =====")
 
 print(
     "Opportunities:",
@@ -298,6 +180,8 @@ print(
     report.universe.blocked_count,
 )
 
+print()
+
 print(
     "Ready:",
     ", ".join(
@@ -318,6 +202,27 @@ print(
         report.universe.blocked_labels
     ),
 )
+
+print()
+
+print("===== EUR 5M OPPORTUNITY DETAIL =====")
+
+for candidate in universe_candidates:
+    return_text = (
+        f"{candidate.defensible_return_pct:.3f}%"
+        if candidate.defensible_return_pct is not None
+        else "-"
+    )
+
+    print(
+        f"{candidate.label:<32}"
+        f"{candidate.candidate_status:<22}"
+        f"{return_text:>9}"
+        f"  blockers="
+        f"{len(candidate.blocking_reasons)}"
+        f"  evidence="
+        f"{len(candidate.evidence_requirements)}"
+    )
 
 print()
 
