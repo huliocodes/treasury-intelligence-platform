@@ -14,18 +14,6 @@ from treasury_intelligence.sources.aave import (
     analyze_position_support,
 )
 
-from treasury_intelligence.sources.france import (
-    BTF_2027_03_10,
-    BTF_2027_03_10_IBKR_ACCESS,
-    BTF_2027_03_10_MARKET,
-)
-
-from treasury_intelligence.sources.ishares import (
-    ERNX_IBKR_ACCESS,
-    ERNX_INSTRUMENT,
-    ERNX_MARKET,
-)
-
 
 def build_etf_position_analysis(
     snapshot: OpportunitySnapshot,
@@ -41,7 +29,10 @@ def build_etf_position_analysis(
             "position_size_eur must be greater than zero."
         )
 
-    if position_scale_eur is not None and position_scale_eur <= 0:
+    if (
+        position_scale_eur is not None
+        and position_scale_eur <= 0
+    ):
         raise ValueError(
             "position_scale_eur must be greater than zero "
             "when provided."
@@ -198,6 +189,91 @@ def build_sovereign_bill_position_analysis(
             executable_economics_known
         ),
         rejection_reason=None,
+        notes=resolved_notes,
+    )
+
+
+def build_money_market_fund_position_analysis(
+    snapshot: OpportunitySnapshot,
+    position_size_eur: float,
+    minimum_initial_investment_eur: float,
+    analysis_id: str | None = None,
+    notes: str | None = None,
+) -> PositionAnalysis:
+    if position_size_eur <= 0:
+        raise ValueError(
+            "position_size_eur must be greater than zero."
+        )
+
+    if minimum_initial_investment_eur < 0:
+        raise ValueError(
+            "minimum_initial_investment_eur cannot be negative."
+        )
+
+    entry_supported = (
+        position_size_eur
+        >= minimum_initial_investment_eur
+    )
+
+    rejection_reason = None
+
+    if not entry_supported:
+        rejection_reason = (
+            "position is below the published minimum "
+            "initial investment"
+        )
+
+    position_pct_of_market = None
+
+    if (
+        snapshot.fund_aum_eur is not None
+        and snapshot.fund_aum_eur > 0
+    ):
+        position_pct_of_market = (
+            position_size_eur
+            / snapshot.fund_aum_eur
+            * 100
+        )
+
+    resolved_analysis_id = (
+        analysis_id
+        or (
+            f"{snapshot.instrument_id}_"
+            f"{int(position_size_eur)}"
+        )
+    )
+
+    resolved_notes = notes or (
+        "Published fund minimums can establish whether "
+        "the proposed allocation meets stated subscription "
+        "terms. Fund AUM provides scale context only. "
+        "Published daily or same-day redemption terms do "
+        "not by themselves prove that an arbitrary position "
+        "can always be redeemed immediately under all market "
+        "conditions. Corporate accessibility is evaluated "
+        "separately from this position analysis."
+    )
+
+    return PositionAnalysis(
+        analysis_id=resolved_analysis_id,
+        instrument_id=snapshot.instrument_id,
+        market_id=snapshot.market_id,
+        access_route_id=snapshot.access_route_id,
+        position_size_eur=position_size_eur,
+        entry_supported=entry_supported,
+        immediate_exit_supported=None,
+        remaining_entry_capacity_eur=None,
+        immediate_exit_coverage_pct=None,
+        position_pct_of_market=position_pct_of_market,
+        position_pct_reference="fund_aum",
+        observed_daily_turnover_eur=None,
+        position_pct_of_daily_turnover=None,
+        liquidity_evidence_level="fund_dealing_terms",
+        reference_yield_pct=snapshot.yield_value_pct,
+        executable_yield_pct=None,
+        position_adjusted_yield_pct=None,
+        executable_economics_known=False,
+        rejection_reason=rejection_reason,
         notes=resolved_notes,
     )
 
