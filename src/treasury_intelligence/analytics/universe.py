@@ -26,6 +26,10 @@ from treasury_intelligence.analytics.returns import (
     build_return_analysis,
 )
 
+from treasury_intelligence.analytics.risk_sufficiency import (
+    assess_risk_evidence_sufficiency,
+)
+
 from treasury_intelligence.models.opportunities import (
     Accessibility,
     Instrument,
@@ -258,6 +262,15 @@ def analyze_opportunity_position(
         )
     )
 
+    risk_sufficiency = (
+        assess_risk_evidence_sufficiency(
+            mandate=mandate,
+            risk_assessments=(
+                risk_assessments
+            ),
+        )
+    )
+
     return_components = (
         return_component_builder(
             position_size_eur
@@ -304,6 +317,9 @@ def analyze_opportunity_position(
             ),
             position_risk_assessments=(
                 position_risk
+            ),
+            risk_sufficiency=(
+                risk_sufficiency
             ),
             economics=economics,
             return_analysis=return_analysis,

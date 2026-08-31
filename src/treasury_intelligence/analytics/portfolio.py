@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from treasury_intelligence.analytics.risk_sufficiency import (
+    RiskEvidenceSufficiencyAssessment,
+)
+
 from treasury_intelligence.models.economics import (
     EconomicsEvidenceAssessment,
 )
@@ -35,6 +39,9 @@ def _validate_entity_alignment(
         PositionRiskAssessment,
         ...
     ],
+    risk_sufficiency: (
+        RiskEvidenceSufficiencyAssessment
+    ),
     economics: EconomicsEvidenceAssessment,
     return_analysis: ReturnAnalysis,
 ) -> None:
@@ -81,8 +88,8 @@ def _validate_entity_alignment(
             != market_id
         ):
             raise ValueError(
-                "Position-risk market does not match "
-                "eligibility result."
+                "Position-risk market does not "
+                "match eligibility result."
             )
 
         if (
@@ -102,6 +109,33 @@ def _validate_entity_alignment(
                 "Position-risk position size does not "
                 "match eligibility result."
             )
+
+    if (
+        risk_sufficiency.mandate_id
+        != eligibility.mandate_id
+    ):
+        raise ValueError(
+            "Risk-sufficiency mandate does not match "
+            "eligibility result."
+        )
+
+    if (
+        risk_sufficiency.instrument_id
+        != instrument_id
+    ):
+        raise ValueError(
+            "Risk-sufficiency instrument does not match "
+            "eligibility result."
+        )
+
+    if (
+        risk_sufficiency.market_id
+        != market_id
+    ):
+        raise ValueError(
+            "Risk-sufficiency market does not match "
+            "eligibility result."
+        )
 
     if (
         economics.instrument_id
@@ -337,6 +371,9 @@ def build_integrated_portfolio_candidate(
         PositionRiskAssessment,
         ...
     ],
+    risk_sufficiency: (
+        RiskEvidenceSufficiencyAssessment
+    ),
     economics: EconomicsEvidenceAssessment,
     return_analysis: ReturnAnalysis,
     notes: str | None = None,
@@ -347,6 +384,7 @@ def build_integrated_portfolio_candidate(
         position_risk_assessments=(
             position_risk_assessments
         ),
+        risk_sufficiency=risk_sufficiency,
         economics=economics,
         return_analysis=return_analysis,
     )
@@ -394,6 +432,10 @@ def build_integrated_portfolio_candidate(
         evidence_requirements.append(
             liquidity_risk.rationale
         )
+
+    evidence_requirements.extend(
+        risk_sufficiency.evidence_requirements
+    )
 
     evidence_requirements.extend(
         _economics_evidence_requirements(
