@@ -14,6 +14,10 @@ if str(SRC_DIR) not in sys.path:
     )
 
 
+from treasury_intelligence.analytics.bubill_risk_assessments import (
+    get_bubill_risk_assessments,
+)
+
 from treasury_intelligence.analytics.generic_risk import (
     build_unknown_risk_assessments,
 )
@@ -383,16 +387,6 @@ def build_bubill_candidate():
         get_bubill_2027_07_14_market_observation()
     )
 
-    risk = build_unknown_risk_assessments(
-        instrument_id=(
-            BUBILL_2027_07_14.instrument_id
-        ),
-        market_id=(
-            BUBILL_2027_07_14_MARKET.market_id
-        ),
-        assessed_at="2026-08-31",
-    )
-
     return analyze_opportunity_position(
         assessment_id="bubill_1m_universe",
         label="German Bubill",
@@ -414,7 +408,9 @@ def build_bubill_candidate():
                 position_size_eur=size,
             )
         ),
-        risk_assessments=risk,
+        risk_assessments=(
+            get_bubill_risk_assessments()
+        ),
         return_component_builder=lambda size: (
             build_conservative_return_components(
                 instrument=BUBILL_2027_07_14,

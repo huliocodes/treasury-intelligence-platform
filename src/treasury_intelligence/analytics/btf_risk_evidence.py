@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from treasury_intelligence.analytics.broker_risk_evidence import (
-    build_ibkr_ireland_recommendation_risk_observations,
+from treasury_intelligence.analytics.sovereign_bill_risk_evidence import (
+    build_direct_sovereign_bill_recommendation_risk_observations,
 )
 
 from treasury_intelligence.models.risk import (
@@ -30,7 +30,7 @@ FITCH_FRANCE_2026_08_28_URL = (
 
 def get_btf_recommendation_risk_observations(
 ) -> tuple[RiskObservation, ...]:
-    instrument_specific_observations = (
+    credit_observations = (
         RiskObservation(
             observation_id=(
                 "btf_2027_03_10_fitch_sovereign_rating"
@@ -94,78 +94,10 @@ def get_btf_recommendation_risk_observations(
                 "sovereign credit risk."
             ),
         ),
-        RiskObservation(
-            observation_id=(
-                "btf_2027_03_10_direct_sovereign_security"
-            ),
-            instrument_id=(
-                BTF_2027_03_10.instrument_id
-            ),
-            market_id=(
-                BTF_2027_03_10_MARKET.market_id
-            ),
-            observed_at="2026-08-31",
-            risk_dimension=(
-                "structural_counterparty"
-            ),
-            observation_type=(
-                "direct_sovereign_security_structure"
-            ),
-            value_text=(
-                "Direct French Republic Treasury bill "
-                "with no fund or derivative wrapper"
-            ),
-            evidence_level="published",
-            source="Agence France Trésor",
-            source_url=AFT_BTF_2027_03_10_URL,
-            notes=(
-                "AFT identifies the instrument directly "
-                "as a French Treasury bill. The modeled "
-                "position therefore does not depend on a "
-                "fund issuer, swap counterparty, token "
-                "issuer, lending protocol, or other "
-                "investment wrapper for its principal "
-                "economic claim."
-            ),
-        ),
-        RiskObservation(
-            observation_id=(
-                "btf_2027_03_10_redemption_structure"
-            ),
-            instrument_id=(
-                BTF_2027_03_10.instrument_id
-            ),
-            market_id=(
-                BTF_2027_03_10_MARKET.market_id
-            ),
-            observed_at="2026-08-31",
-            risk_dimension=(
-                "structural_counterparty"
-            ),
-            observation_type=(
-                "sovereign_bill_redemption_structure"
-            ),
-            value_text=(
-                "Zero-coupon BTF redeemed in full at "
-                "par on 10 March 2027"
-            ),
-            evidence_level="published",
-            source="Agence France Trésor",
-            source_url=AFT_BTF_2027_03_10_URL,
-            notes=(
-                "The security is a conventional "
-                "zero-coupon sovereign obligation "
-                "redeemable at par at maturity. "
-                "Secondary-market price risk before "
-                "maturity remains a market-risk issue, "
-                "not an additional investment-wrapper "
-                "counterparty layer."
-            ),
-        ),
     )
 
-    broker_observations = (
-        build_ibkr_ireland_recommendation_risk_observations(
+    shared_sovereign_observations = (
+        build_direct_sovereign_bill_recommendation_risk_observations(
             instrument_id=(
                 BTF_2027_03_10.instrument_id
             ),
@@ -175,10 +107,15 @@ def get_btf_recommendation_risk_observations(
             observation_id_prefix=(
                 "btf_2027_03_10"
             ),
+            issuer_name="French Republic",
+            instrument_name="BTF 10 March 2027",
+            maturity_date_text="10 March 2027",
+            source_name="Agence France Trésor",
+            source_url=AFT_BTF_2027_03_10_URL,
         )
     )
 
     return (
-        instrument_specific_observations
-        + broker_observations
+        credit_observations
+        + shared_sovereign_observations
     )

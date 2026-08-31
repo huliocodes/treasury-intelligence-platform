@@ -19,6 +19,9 @@ if str(SRC_DIR) not in sys.path:
 from treasury_intelligence.analytics.bond_returns import (
     build_ibkr_europe_otc_bond_return_components,
 )
+from treasury_intelligence.analytics.bubill_risk_assessments import (
+    get_bubill_risk_assessments,
+)
 from treasury_intelligence.analytics.execution_estimates import (
     ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS,
     SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS,
@@ -432,16 +435,6 @@ def build_bubill_candidate(
         get_bubill_2027_07_14_market_observation()
     )
 
-    risk = build_unknown_risk_assessments(
-        instrument_id=(
-            BUBILL_2027_07_14.instrument_id
-        ),
-        market_id=(
-            BUBILL_2027_07_14_MARKET.market_id
-        ),
-        assessed_at=RISK_ASSESSED_AT,
-    )
-
     return analyze_opportunity_position(
         assessment_id=(
             f"bubill_{int(position_size_eur)}_matrix"
@@ -465,7 +458,9 @@ def build_bubill_candidate(
                 position_size_eur=size,
             )
         ),
-        risk_assessments=risk,
+        risk_assessments=(
+            get_bubill_risk_assessments()
+        ),
         return_component_builder=lambda size: (
             build_ibkr_europe_otc_bond_return_components(
                 instrument=BUBILL_2027_07_14,
