@@ -16,11 +16,21 @@ if str(SRC_DIR) not in sys.path:
     )
 
 
+from treasury_intelligence.analytics.bond_returns import (
+    build_ibkr_europe_otc_bond_return_components,
+)
+from treasury_intelligence.analytics.execution_estimates import (
+    ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS,
+    SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS,
+)
 from treasury_intelligence.analytics.generic_risk import (
     build_unknown_risk_assessments,
 )
 from treasury_intelligence.analytics.generic_returns import (
     build_conservative_return_components,
+)
+from treasury_intelligence.analytics.ibkr_returns import (
+    build_ibkr_return_components,
 )
 from treasury_intelligence.analytics.positions import (
     build_aave_position_analysis,
@@ -87,6 +97,13 @@ from treasury_intelligence.sources.germany import (
     BUBILL_2027_07_14_MARKET,
     get_bubill_2027_07_14_market_observation,
     get_bubill_2027_07_14_snapshot,
+)
+from treasury_intelligence.sources.ibkr import (
+    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE,
+    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE,
+)
+from treasury_intelligence.sources.ibkr_fixed_income import (
+    IBKR_EUROPE_OTC_BOND_EVIDENCE,
 )
 from treasury_intelligence.sources.ishares import (
     ERNX_ACCESSIBILITY,
@@ -175,11 +192,27 @@ def build_xeon_candidate(
             get_xeon_risk_assessments()
         ),
         return_component_builder=lambda _size: (
-            build_conservative_return_components(
+            build_ibkr_return_components(
                 instrument=XEON_INSTRUMENT,
                 market=XEON_MARKET,
                 snapshot=snapshot,
                 reference_yield_includes_product_fee=True,
+                access_cost_evidence=(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                ),
+                trading_cost_evidence=(
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
+                estimated_slippage_basis=(
+                    "Conservative estimate for a strongly "
+                    "inferred liquid institutional ETF "
+                    "position with observed Xetra market "
+                    "evidence and position size small "
+                    "relative to fund scale"
+                ),
             )
         ),
         market_observation=market_observation,
@@ -307,11 +340,27 @@ def build_ernx_candidate(
             get_ernx_risk_assessments()
         ),
         return_component_builder=lambda _size: (
-            build_conservative_return_components(
+            build_ibkr_return_components(
                 instrument=ERNX_INSTRUMENT,
                 market=ERNX_MARKET,
                 snapshot=snapshot,
-                reference_yield_includes_product_fee=None,
+                reference_yield_includes_product_fee=False,
+                access_cost_evidence=(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                ),
+                trading_cost_evidence=(
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
+                estimated_slippage_basis=(
+                    "Conservative estimate for a strongly "
+                    "inferred liquid institutional ETF "
+                    "position with observed Xetra market "
+                    "activity and position size small "
+                    "relative to share-class scale"
+                ),
             )
         ),
         market_observation=market_observation,
@@ -353,12 +402,19 @@ def build_btf_candidate(
         risk_assessments=(
             get_btf_risk_assessments()
         ),
-        return_component_builder=lambda _size: (
-            build_conservative_return_components(
+        return_component_builder=lambda size: (
+            build_ibkr_europe_otc_bond_return_components(
                 instrument=BTF_2027_03_10,
                 market=BTF_2027_03_10_MARKET,
                 snapshot=snapshot,
+                position_size_eur=size,
                 reference_yield_includes_product_fee=None,
+                trading_cost_evidence=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
             )
         ),
         market_observation=market_observation,
@@ -410,12 +466,19 @@ def build_bubill_candidate(
             )
         ),
         risk_assessments=risk,
-        return_component_builder=lambda _size: (
-            build_conservative_return_components(
+        return_component_builder=lambda size: (
+            build_ibkr_europe_otc_bond_return_components(
                 instrument=BUBILL_2027_07_14,
                 market=BUBILL_2027_07_14_MARKET,
                 snapshot=snapshot,
+                position_size_eur=size,
                 reference_yield_includes_product_fee=None,
+                trading_cost_evidence=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
             )
         ),
         market_observation=market_observation,

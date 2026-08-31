@@ -324,7 +324,7 @@ def print_readiness_table(
     print("=" * 118)
 
 
-def print_access_warning(
+def print_accessibility_status(
     audits: tuple[
         ReadinessAudit,
         ...
@@ -333,19 +333,17 @@ def print_access_warning(
     modeled_eligible = tuple(
         audit
         for audit in audits
-        if (
-            audit.eligibility_status
-            != "ineligible"
-        )
+        if audit.eligibility_status != "ineligible"
     )
 
     print()
-    print("ACCESSIBILITY AUDIT WARNING")
+    print("ACCESSIBILITY STATUS")
     print("=" * 100)
 
     print(
-        "The following opportunities currently survive "
-        "the modeled corporate-access eligibility check:"
+        "The following opportunities currently satisfy "
+        "or survive the modeled V1 corporate-access "
+        "eligibility analysis:"
     )
 
     print()
@@ -358,16 +356,19 @@ def print_access_warning(
     print()
 
     print(
-        "This does NOT by itself prove the exact "
-        "Slovenian-d.o.o. execution route to the stronger "
-        "standard required before final allocation."
+        "V1 accessibility is based on the supported "
+        "corporate access route and known instrument / "
+        "market availability. An exact live order ticket "
+        "from the model company is not required before "
+        "portfolio analysis."
     )
 
     print(
-        "Before an opportunity can be used by the V1 "
-        "allocator, its exact corporate access route must "
-        "be independently verified rather than inferred "
-        "from a conceptual broker route."
+        "Account-specific permissions, onboarding, and "
+        "operational checks remain execution-stage tasks. "
+        "A known legal, product, jurisdictional, or broker "
+        "restriction would still override this modeled "
+        "accessibility conclusion."
     )
 
 
@@ -476,7 +477,7 @@ def main() -> None:
         audits
     )
 
-    print_access_warning(
+    print_accessibility_status(
         audits
     )
 
