@@ -12,6 +12,7 @@ from treasury_intelligence.models.opportunities import (
 
 LIQUIDITY_EVIDENCE_RANKS = {
     "none": 0,
+    "fund_dealing_terms": 1,
     "market_activity": 1,
     "displayed_quote": 2,
     "displayed_quote_with_size": 3,
@@ -30,6 +31,12 @@ def classify_liquidity_evidence(
             is not None
         ):
             return "position_depth"
+
+    if (
+        position.liquidity_evidence_level
+        == "fund_dealing_terms"
+    ):
+        return "fund_dealing_terms"
 
     if market_observation is None:
         return "none"
@@ -62,7 +69,13 @@ def strongest_supported_claim(
 ) -> str:
     claims = {
         "none": (
-            "No direct market-liquidity evidence is available."
+            "No direct liquidity evidence is available."
+        ),
+        "fund_dealing_terms": (
+            "Published fund subscription or redemption dealing "
+            "terms provide evidence of the fund's normal dealing "
+            "process, but they do not establish unconditional "
+            "immediate liquidity for the proposed position."
         ),
         "market_activity": (
             "The market shows observed trading activity, but the "
@@ -97,9 +110,17 @@ def missing_liquidity_evidence(
 ) -> str | None:
     missing = {
         "none": (
-            "Obtain public market activity or quote evidence, then "
-            "progress toward position-size-specific executable "
-            "liquidity evidence."
+            "Obtain public liquidity evidence, then progress "
+            "toward position-size-specific executable liquidity "
+            "evidence."
+        ),
+        "fund_dealing_terms": (
+            "Published fund dealing terms establish the normal "
+            "subscription or redemption process but not guaranteed "
+            "position-size immediate exit. Obtain stronger evidence "
+            "on redemption capacity, settlement behavior, gates, "
+            "suspension conditions, or position-size liquidity "
+            "where required by the treasury mandate."
         ),
         "market_activity": (
             "Obtain a current two-sided quote and displayed size "
@@ -138,38 +159,45 @@ def assess_liquidity_evidence(
     ]
 
     market_activity_observed = (
-        evidence_rank
-        >= LIQUIDITY_EVIDENCE_RANKS[
-            "market_activity"
-        ]
+        evidence_level
+        in (
+            "market_activity",
+            "displayed_quote",
+            "displayed_quote_with_size",
+            "executable_quote",
+            "position_depth",
+        )
     )
 
     displayed_quote_observed = (
-        evidence_rank
-        >= LIQUIDITY_EVIDENCE_RANKS[
-            "displayed_quote"
-        ]
+        evidence_level
+        in (
+            "displayed_quote",
+            "displayed_quote_with_size",
+            "executable_quote",
+            "position_depth",
+        )
     )
 
     displayed_size_observed = (
-        evidence_rank
-        >= LIQUIDITY_EVIDENCE_RANKS[
-            "displayed_quote_with_size"
-        ]
+        evidence_level
+        in (
+            "displayed_quote_with_size",
+            "executable_quote",
+            "position_depth",
+        )
     )
 
     executable_quote_observed = (
-        evidence_rank
-        >= LIQUIDITY_EVIDENCE_RANKS[
-            "executable_quote"
-        ]
+        evidence_level
+        in (
+            "executable_quote",
+            "position_depth",
+        )
     )
 
     position_depth_observed = (
-        evidence_rank
-        >= LIQUIDITY_EVIDENCE_RANKS[
-            "position_depth"
-        ]
+        evidence_level == "position_depth"
     )
 
     sufficient_for_immediate_liquidity = (
@@ -221,8 +249,8 @@ def assess_liquidity_evidence(
         ),
         notes=(
             "Evidence strength and liquidity conclusion are kept "
-            "separate. Market activity or displayed quotes can "
-            "improve confidence without proving that the proposed "
-            "position can be exited immediately."
+            "separate. Fund dealing terms, market activity, or "
+            "displayed quotes can improve evidence without proving "
+            "that the proposed position can be exited immediately."
         ),
     )
