@@ -14,6 +14,11 @@ from treasury_intelligence.sources.aave import (
     analyze_position_support,
 )
 
+from treasury_intelligence.sources.banks import (
+    BankDepositRate,
+    interpret_bank_deposit_position,
+)
+
 
 def build_etf_position_analysis(
     snapshot: OpportunitySnapshot,
@@ -273,6 +278,118 @@ def build_money_market_fund_position_analysis(
         executable_yield_pct=None,
         position_adjusted_yield_pct=None,
         executable_economics_known=False,
+        rejection_reason=rejection_reason,
+        notes=resolved_notes,
+    )
+
+
+def build_bank_deposit_position_analysis(
+    snapshot: OpportunitySnapshot,
+    rate: BankDepositRate,
+    position_size_eur: float,
+    analysis_id: str | None = None,
+    notes: str | None = None,
+) -> PositionAnalysis:
+    if position_size_eur <= 0:
+        raise ValueError(
+            "position_size_eur must be greater than zero."
+        )
+
+    interpretation = interpret_bank_deposit_position(
+        rate=rate,
+        position_size_eur=position_size_eur,
+    )
+
+    entry_supported = (
+        interpretation.minimum_amount_supported
+    )
+
+    if interpretation.maximum_amount_supported is False:
+        entry_supported = False
+
+    rejection_reason = None
+
+    if not interpretation.minimum_amount_supported:
+        rejection_reason = (
+            "position is below the published minimum "
+            "deposit amount"
+        )
+
+    elif interpretation.maximum_amount_supported is False:
+        rejection_reason = (
+            "position exceeds the published maximum "
+            "deposit amount"
+        )
+
+    immediate_exit_supported = (
+        True
+        if rate.early_withdrawal
+        else False
+    )
+
+    immediate_exit_coverage_pct = (
+        100.0
+        if immediate_exit_supported
+        else 0.0
+    )
+
+    executable_yield_pct = (
+        interpretation.executable_rate_pct
+    )
+
+    executable_economics_known = (
+        interpretation.published_rate_is_executable
+    )
+
+    resolved_analysis_id = (
+        analysis_id
+        or (
+            f"{snapshot.instrument_id}_"
+            f"{int(position_size_eur)}"
+        )
+    )
+
+    resolved_notes = notes or (
+        "Published bank-deposit amount limits establish "
+        "whether the proposed allocation fits the stated "
+        "product terms. The published rate remains a "
+        "reference rate unless the bank evidence establishes "
+        "a firm non-negotiated rate. Early-withdrawal terms "
+        "are modeled separately from initial placement "
+        "settlement. A deposit with no early withdrawal "
+        "therefore has zero immediate exit coverage while "
+        "the term remains active."
+    )
+
+    return PositionAnalysis(
+        analysis_id=resolved_analysis_id,
+        instrument_id=snapshot.instrument_id,
+        market_id=snapshot.market_id,
+        access_route_id=snapshot.access_route_id,
+        position_size_eur=position_size_eur,
+        entry_supported=entry_supported,
+        immediate_exit_supported=(
+            immediate_exit_supported
+        ),
+        remaining_entry_capacity_eur=None,
+        immediate_exit_coverage_pct=(
+            immediate_exit_coverage_pct
+        ),
+        position_pct_of_market=None,
+        position_pct_reference=None,
+        observed_daily_turnover_eur=None,
+        position_pct_of_daily_turnover=None,
+        liquidity_evidence_level=(
+            "published_withdrawal_terms"
+        ),
+        reference_yield_pct=(
+            interpretation.published_rate_pct
+        ),
+        executable_yield_pct=executable_yield_pct,
+        position_adjusted_yield_pct=None,
+        executable_economics_known=(
+            executable_economics_known
+        ),
         rejection_reason=rejection_reason,
         notes=resolved_notes,
     )
