@@ -11,6 +11,10 @@ from treasury_intelligence.analytics.risk import (
     get_xeon_risk_observations,
 )
 
+from treasury_intelligence.analytics.xeon_risk_evidence import (
+    get_xeon_recommendation_risk_observations,
+)
+
 from treasury_intelligence.models.risk import (
     RISK_DIMENSIONS,
     RiskObservation,
@@ -23,6 +27,7 @@ from treasury_intelligence.models.risk_assessments import (
 
 ASSESSED_AT = "2026-08-29"
 ERNX_ASSESSED_AT = "2026-08-31"
+XEON_ASSESSED_AT = "2026-08-31"
 
 
 def _observation_ids(
@@ -373,24 +378,55 @@ def get_btf_risk_assessments(
 
 def get_xeon_risk_assessments(
 ) -> tuple[RiskAssessment, ...]:
-    observations = get_xeon_risk_observations()
+    observations = (
+        get_xeon_risk_observations()
+        + get_xeon_recommendation_risk_observations()
+    )
 
     instrument_id = observations[0].instrument_id
     market_id = observations[0].market_id
 
     return (
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "xeon_principal_credit"
             ),
             instrument_id=instrument_id,
             market_id=market_id,
             risk_dimension="principal_credit",
+            risk_level="moderate",
             rationale=(
-                "The current observation layer does not yet contain "
-                "sufficient swap-counterparty, collateral, "
-                "substitution-basket, or loss-mechanism evidence "
-                "for a principal/credit assessment."
+                "XEON obtains its target exposure through "
+                "indirect swap replication rather than by "
+                "directly holding an overnight deposit. DWS "
+                "states that Xtrackers UCITS ETFs may have "
+                "up to 10% net counterparty exposure to a "
+                "single counterparty under UCITS limits and "
+                "that default of an OTC derivative "
+                "counterparty in an indirectly replicated ETF "
+                "can lead to fund liquidation and investor "
+                "losses of up to 10% of NAV through that "
+                "counterparty-default mechanism. Collateral "
+                "and regulatory exposure limits mitigate this "
+                "risk but do not eliminate principal-loss "
+                "potential."
+            ),
+            supporting_observation_ids=(
+                _observation_ids(
+                    observations,
+                    "principal_credit",
+                )
+            ),
+            assessed_at=XEON_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Moderate is a mandate classification, not "
+                "an estimate of expected loss. The documented "
+                "maximum counterparty exposure and default-loss "
+                "mechanism are materially less compatible with "
+                "a very-high-capital-preservation treasury "
+                "mandate than the low-risk structures accepted "
+                "by the current V1 policy."
             ),
         ),
         RiskAssessment(
@@ -455,7 +491,7 @@ def get_xeon_risk_assessments(
             assessed_at=ASSESSED_AT,
             evidence_sufficient=True,
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "xeon_structural_counterparty"
             ),
@@ -464,19 +500,38 @@ def get_xeon_risk_assessments(
             risk_dimension=(
                 "structural_counterparty"
             ),
+            risk_level="moderate",
             rationale=(
-                "Synthetic swap replication establishes the presence "
-                "of swap-counterparty and collateral-structure "
-                "dependencies. Current observations do not yet "
-                "describe the counterparties, collateral, exposure "
-                "limits, reset mechanics, or protections sufficiently "
-                "to grade their severity."
+                "XEON is a Luxembourg UCITS ETF using "
+                "indirect swap replication with a named "
+                "fund custodian. Its structure therefore "
+                "depends on one or more swap counterparties "
+                "performing derivative obligations. UCITS "
+                "counterparty-exposure limits and EMIR "
+                "collateral exchange mitigate this dependency, "
+                "but DWS explicitly states that counterparty "
+                "failure can cause losses, dealing suspension, "
+                "or liquidation of an indirectly replicated "
+                "ETF. These protections reduce but do not "
+                "remove the structural dependency."
             ),
             supporting_observation_ids=(
                 _observation_ids(
                     observations,
                     "structural_counterparty",
                 )
+            ),
+            assessed_at=XEON_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "The assessment is moderate rather than high "
+                "because the structure is a regulated UCITS "
+                "fund with counterparty limits, collateral "
+                "risk-mitigation requirements, and an "
+                "identified custodian. It is not classified "
+                "low because a derivative-counterparty default "
+                "is a documented principal-loss and fund-"
+                "continuity mechanism."
             ),
         ),
         _not_applicable_assessment(
@@ -492,7 +547,7 @@ def get_xeon_risk_assessments(
                 "dimensions."
             ),
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "xeon_operational_regulatory"
             ),
@@ -501,12 +556,36 @@ def get_xeon_risk_assessments(
             risk_dimension=(
                 "operational_regulatory"
             ),
+            risk_level="low",
             rationale=(
-                "The V1 corporate brokerage route is considered "
-                "accessible, but the current observation layer does "
-                "not yet provide sufficient execution, custody, "
-                "accounting, tax, or operational evidence for a "
-                "qualitative assessment."
+                "The modeled route uses a conventional "
+                "regulated corporate brokerage and UCITS "
+                "custody structure. IBKR Ireland states that "
+                "client money is segregated, fully paid "
+                "securities are held through depositories and "
+                "custodians for clients' benefit, and client "
+                "money and securities are reconciled daily. "
+                "XEON also has an identified Luxembourg fund "
+                "custodian. This is sufficient recommendation-"
+                "stage evidence for a low operational and "
+                "regulatory risk assessment while ordinary "
+                "broker, custodian, settlement, onboarding, "
+                "and administrative risks remain."
+            ),
+            supporting_observation_ids=(
+                _observation_ids(
+                    observations,
+                    "operational_regulatory",
+                )
+            ),
+            assessed_at=XEON_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Company-specific tax treatment, accounting, "
+                "internal authorization, final account setup, "
+                "and account permissions remain execution-stage "
+                "checks unless a specific restriction is "
+                "discovered."
             ),
         ),
     )

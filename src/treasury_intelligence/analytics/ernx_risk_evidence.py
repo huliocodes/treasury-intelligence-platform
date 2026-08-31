@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from treasury_intelligence.analytics.broker_risk_evidence import (
+    build_ibkr_ireland_recommendation_risk_observations,
+)
+
 from treasury_intelligence.models.risk import (
     RiskObservation,
 )
@@ -16,15 +20,10 @@ ISHARES_ERNX_SOURCE_URL = (
     "ishares-ultrashort-bond-ucits-etf"
 )
 
-IBKR_IRELAND_CLIENT_PROTECTION_URL = (
-    "https://www.interactivebrokers.ie/en/general/"
-    "security-investor-protection.php"
-)
-
 
 def get_ernx_recommendation_risk_observations(
 ) -> tuple[RiskObservation, ...]:
-    return (
+    instrument_specific_observations = (
         RiskObservation(
             observation_id=(
                 "ernx_custodian"
@@ -159,97 +158,19 @@ def get_ernx_recommendation_risk_observations(
                 "insufficient because of market moves."
             ),
         ),
-        RiskObservation(
-            observation_id=(
-                "ernx_ibkr_client_money_segregation"
-            ),
+    )
+
+    broker_observations = (
+        build_ibkr_ireland_recommendation_risk_observations(
             instrument_id=(
                 ERNX_INSTRUMENT.instrument_id
             ),
             market_id=ERNX_MARKET.market_id,
-            observed_at="2026-08-31",
-            risk_dimension=(
-                "operational_regulatory"
-            ),
-            observation_type=(
-                "broker_client_money_segregation"
-            ),
-            value_text=(
-                "IBKR Ireland segregates client money "
-                "for the exclusive benefit of clients"
-            ),
-            evidence_level="published",
-            source="Interactive Brokers Ireland",
-            source_url=(
-                IBKR_IRELAND_CLIENT_PROTECTION_URL
-            ),
-            notes=(
-                "IBKR Ireland states that client money "
-                "is maintained in segregated client "
-                "accounts rather than commingled with "
-                "the broker's own funds."
-            ),
-        ),
-        RiskObservation(
-            observation_id=(
-                "ernx_ibkr_fully_paid_securities_custody"
-            ),
-            instrument_id=(
-                ERNX_INSTRUMENT.instrument_id
-            ),
-            market_id=ERNX_MARKET.market_id,
-            observed_at="2026-08-31",
-            risk_dimension=(
-                "operational_regulatory"
-            ),
-            observation_type=(
-                "broker_securities_custody"
-            ),
-            value_text=(
-                "Fully paid client securities are held "
-                "at depositories and custodians for the "
-                "exclusive benefit of clients"
-            ),
-            evidence_level="published",
-            source="Interactive Brokers Ireland",
-            source_url=(
-                IBKR_IRELAND_CLIENT_PROTECTION_URL
-            ),
-            notes=(
-                "This supports the modeled self-directed "
-                "corporate brokerage custody route. It "
-                "does not eliminate broker, custodian, "
-                "settlement, or administrative risk."
-            ),
-        ),
-        RiskObservation(
-            observation_id=(
-                "ernx_ibkr_daily_reconciliation"
-            ),
-            instrument_id=(
-                ERNX_INSTRUMENT.instrument_id
-            ),
-            market_id=ERNX_MARKET.market_id,
-            observed_at="2026-08-31",
-            risk_dimension=(
-                "operational_regulatory"
-            ),
-            observation_type=(
-                "broker_daily_reconciliation"
-            ),
-            value_text=(
-                "IBKR Ireland reconciles client money "
-                "and securities positions daily"
-            ),
-            evidence_level="published",
-            source="Interactive Brokers Ireland",
-            source_url=(
-                IBKR_IRELAND_CLIENT_PROTECTION_URL
-            ),
-            notes=(
-                "Daily reconciliation is an operational "
-                "control supporting the custody and "
-                "client-asset protection assessment."
-            ),
-        ),
+            observation_id_prefix="ernx",
+        )
+    )
+
+    return (
+        instrument_specific_observations
+        + broker_observations
     )
