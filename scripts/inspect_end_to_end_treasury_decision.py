@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from treasury_intelligence.analytics.allocation_selection import (
     AllocationOpportunity,
     build_return_priority_portfolio_construction,
@@ -7,6 +9,14 @@ from treasury_intelligence.analytics.allocation_selection import (
 
 from treasury_intelligence.analytics.approvals import (
     create_pending_approval,
+)
+
+from treasury_intelligence.analytics.decision_explanations import (
+    build_treasury_decision_explanation,
+)
+
+from treasury_intelligence.analytics.portfolio_comparisons import (
+    build_portfolio_alternative_comparison,
 )
 
 from treasury_intelligence.analytics.portfolio_proposals import (
@@ -59,6 +69,32 @@ ALLOCATION_OPPORTUNITIES = (
         ),
     ),
 )
+
+
+def build_construction(
+    *,
+    construction_id: str,
+    maximum_single_position_pct: float,
+):
+    mandate = replace(
+        MODEL_COMPANY_MANDATE,
+        maximum_single_position_pct=(
+            maximum_single_position_pct
+        ),
+    )
+
+    return (
+        mandate,
+        *build_return_priority_portfolio_construction(
+            construction_id=construction_id,
+            mandate=mandate,
+            opportunities=ALLOCATION_OPPORTUNITIES,
+            notes=(
+                "Counterfactual concentration scenario "
+                "for decision explanation."
+            ),
+        ),
+    )
 
 
 universe_candidates = (
@@ -129,6 +165,90 @@ report = build_treasury_decision_report(
 )
 
 
+(
+    mandate_50,
+    construction_50,
+    candidates_50,
+) = build_construction(
+    construction_id=(
+        "model_company_5m_50pct_diagnostic"
+    ),
+    maximum_single_position_pct=50.0,
+)
+
+
+(
+    mandate_40,
+    construction_40,
+    candidates_40,
+) = build_construction(
+    construction_id=(
+        "model_company_5m_40pct_diagnostic"
+    ),
+    maximum_single_position_pct=40.0,
+)
+
+
+comparison_50 = (
+    build_portfolio_alternative_comparison(
+        comparison_id=(
+            "selected_vs_50pct_diagnostic"
+        ),
+        selected_construction=construction,
+        selected_candidates=selected_candidates,
+        alternative_construction=construction_50,
+        alternative_candidates=candidates_50,
+        notes=(
+            "50% maximum-position diagnostic only."
+        ),
+    )
+)
+
+
+comparison_40 = (
+    build_portfolio_alternative_comparison(
+        comparison_id=(
+            "selected_vs_40pct_diagnostic"
+        ),
+        selected_construction=construction,
+        selected_candidates=selected_candidates,
+        alternative_construction=construction_40,
+        alternative_candidates=candidates_40,
+        notes=(
+            "40% maximum-position diagnostic only."
+        ),
+    )
+)
+
+
+explanation = (
+    build_treasury_decision_explanation(
+        explanation_id=(
+            "model_company_5m_explanation"
+        ),
+        report=report,
+        universe_candidates=universe_candidates,
+        concentration_comparisons=(
+            (
+                "50% maximum-position diagnostic",
+                mandate_50.maximum_single_position_pct,
+                comparison_50,
+            ),
+            (
+                "40% maximum-position diagnostic",
+                mandate_40.maximum_single_position_pct,
+                comparison_40,
+            ),
+        ),
+        notes=(
+            "Decision explanation reports existing "
+            "analytical outputs and does not introduce "
+            "a diversification policy."
+        ),
+    )
+)
+
+
 print("===== TREASURY DECISION =====")
 print()
 
@@ -182,119 +302,162 @@ print(
 
 print()
 
+print("===== RECOMMENDATION =====")
+
 print(
-    "Ready:",
-    ", ".join(
-        report.universe.recommendation_ready_labels
-    ),
+    "Selected:",
+    explanation.selected_label,
 )
 
 print(
-    "Needs evidence:",
-    ", ".join(
-        report.universe.needs_evidence_labels
-    ),
+    "Allocation:",
+    f"EUR {explanation.selected_allocation_eur:,.0f}",
 )
 
 print(
-    "Blocked:",
-    ", ".join(
-        report.universe.blocked_labels
-    ),
+    "Allocation percentage:",
+    f"{explanation.selected_allocation_pct:.2f}%",
+)
+
+print(
+    "Defensible return:",
+    f"{explanation.selected_return_pct:.3f}%",
+)
+
+print(
+    "Expected annual return:",
+    f"EUR {explanation.selected_annual_return_eur:,.0f}",
 )
 
 print()
 
-print("===== EUR 5M OPPORTUNITY DETAIL =====")
+print("===== WHY THIS OPPORTUNITY =====")
 
-for candidate in universe_candidates:
-    return_text = (
-        f"{candidate.defensible_return_pct:.3f}%"
-        if candidate.defensible_return_pct is not None
-        else "-"
-    )
-
+for opportunity in explanation.ready_opportunities:
     print(
-        f"{candidate.label:<32}"
-        f"{candidate.candidate_status:<22}"
-        f"{return_text:>9}"
-        f"  blockers="
-        f"{len(candidate.blocking_reasons)}"
-        f"  evidence="
-        f"{len(candidate.evidence_requirements)}"
+        f"{opportunity.label:<20}"
+        f"{opportunity.defensible_return_pct:>8.3f}%"
+        f"  annual="
+        f"EUR {opportunity.annual_return_eur_at_position:>10,.0f}"
+        f"  selected advantage="
+        f"{opportunity.return_difference_vs_selected_bps:>6.2f} bps"
+        f" / EUR "
+        f"{opportunity.annual_return_difference_vs_selected_eur:,.0f}"
     )
 
 print()
 
-print("===== ALLOCATION =====")
-
-for line in report.allocation_lines:
-    print(
-        f"{line.label:<20}",
-        f"EUR {line.allocation_eur:>12,.0f}",
-        f"{line.allocation_pct_of_treasury:>7.2f}%",
-    )
-
-print()
+print("===== TARGET =====")
 
 print(
-    "Allocated:",
-    f"EUR {report.allocated_capital_eur:,.0f}",
-)
-
-print(
-    "Unallocated:",
-    f"EUR {report.unallocated_capital_eur:,.0f}",
-)
-
-print()
-
-print("===== RETURN =====")
-
-print(
-    "Portfolio defensible return:",
+    "Target:",
     (
-        f"{report.portfolio_defensible_return_pct:.3f}%"
-        if report.portfolio_defensible_return_pct
-        is not None
-        else "Unknown"
+        f"{explanation.target_yield_pct:.3f}%"
+        if explanation.target_yield_pct is not None
+        else "None"
     ),
 )
 
 print(
-    "Portfolio annual return:",
-    (
-        f"EUR {report.portfolio_annual_return_eur:,.0f}"
-        if report.portfolio_annual_return_eur
-        is not None
-        else "Unknown"
-    ),
+    "Achieved:",
+    f"{explanation.selected_return_pct:.3f}%",
 )
 
 print(
-    "Target yield gap:",
+    "Yield gap:",
     (
-        f"{report.target_yield_gap_pct:.3f} "
+        f"{explanation.target_yield_gap_pct:.3f} "
         "percentage points"
-        if report.target_yield_gap_pct
-        is not None
-        else "Unknown"
+        if explanation.target_yield_gap_pct is not None
+        else "None"
     ),
 )
 
 print(
-    "Target annual EUR gap:",
+    "Annual EUR gap:",
     (
-        f"EUR {report.target_yield_gap_eur:,.0f}"
-        if report.target_yield_gap_eur
-        is not None
-        else "Unknown"
+        f"EUR {explanation.target_yield_gap_eur:,.0f}"
+        if explanation.target_yield_gap_eur is not None
+        else "None"
     ),
 )
 
 print()
 
-print("===== DECISION / APPROVAL =====")
+print("===== CONCENTRATION DIAGNOSTICS =====")
+
+print(
+    f"{'Scenario':<34}"
+    f"{'Positions':>10}"
+    f"{'Largest':>12}"
+    f"{'Return':>12}"
+    f"{'Annual EUR':>16}"
+    f"{'Cost':>12}"
+)
+
+for alternative in (
+    explanation.concentration_alternatives
+):
+    print(
+        f"{alternative.label:<34}"
+        f"{alternative.position_count:>10}"
+        f"{alternative.largest_position_pct:>11.2f}%"
+        f"{alternative.annual_return_pct:>11.3f}%"
+        f"  EUR {alternative.annual_return_eur:>10,.0f}"
+        f"{alternative.return_cost_bps:>9.2f} bps"
+    )
+
+print()
+
+print(
+    explanation.concentration_policy_interpretation
+)
+
+print()
+
+print("===== NON-READY OPPORTUNITIES =====")
+
+for opportunity in (
+    explanation.non_ready_opportunities
+):
+    return_text = (
+        f"{opportunity.defensible_return_pct:.3f}%"
+        if opportunity.defensible_return_pct is not None
+        else "unknown"
+    )
+
+    print()
+    print(
+        f"{opportunity.label} "
+        f"[{opportunity.candidate_status}] "
+        f"return={return_text}"
+    )
+
+    print(
+        "  Blockers:",
+        len(opportunity.blocking_reasons),
+    )
+
+    for blocker in opportunity.blocking_reasons:
+        print(
+            f"    - {blocker}"
+        )
+
+    print(
+        "  Evidence requirements:",
+        len(opportunity.evidence_requirements),
+    )
+
+    for requirement in (
+        opportunity.evidence_requirements
+    ):
+        print(
+            f"    - {requirement}"
+        )
+
+print()
+
+print("===== APPROVAL / EXECUTION =====")
 
 print(
     "Recommended action:",
@@ -308,25 +471,20 @@ print(
 
 print(
     "Approval status:",
-    report.approval_status,
+    explanation.approval_status,
 )
 
 print(
     "Authorized allocation:",
-    f"EUR {report.authorized_allocation_eur:,.0f}",
+    f"EUR {explanation.authorized_allocation_eur:,.0f}",
 )
 
 print(
     "Execution authorized:",
-    report.execution_authorized,
+    explanation.execution_authorized,
 )
 
 print(
     "Report status:",
     report.report_status,
 )
-
-print()
-
-print("Rationale:")
-print(report.rationale)
