@@ -111,32 +111,3 @@ def apply_access_cost_evidence(
         )
 
     return tuple(enriched_components)
-
-
-XEON_ACCESS_FEE_COMPONENT_ID = (
-    "xeon_access_fee"
-)
-
-
-def apply_xeon_access_cost_evidence(
-    components: tuple[ReturnComponent, ...],
-    access_cost_evidence: BrokerRecurringAccessCostEvidence,
-) -> tuple[ReturnComponent, ...]:
-    """
-    Temporary compatibility wrapper.
-
-    XEON callers will be migrated to the generic
-    apply_access_cost_evidence() interface during
-    architecture consolidation. New analytics code
-    should not use this wrapper.
-    """
-
-    return apply_access_cost_evidence(
-        components=components,
-        access_cost_evidence=access_cost_evidence,
-        component_id=XEON_ACCESS_FEE_COMPONENT_ID,
-        label=(
-            "Published recurring IBKR access "
-            "cost for Germany/Xetra ETF route"
-        ),
-    )

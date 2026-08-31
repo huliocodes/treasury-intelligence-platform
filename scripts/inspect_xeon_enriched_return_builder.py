@@ -8,16 +8,37 @@ SRC_DIR = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_DIR))
 
 
+from treasury_intelligence.analytics.access_returns import (
+    apply_access_cost_evidence,
+)
+
 from treasury_intelligence.analytics.economics import (
     build_economics_evidence_assessment,
+)
+
+from treasury_intelligence.analytics.execution_evidence import (
+    assess_xetra_position_execution_evidence,
+)
+
+from treasury_intelligence.analytics.execution_returns import (
+    apply_position_execution_evidence,
+)
+
+from treasury_intelligence.analytics.frictions import (
+    build_xeon_return_components,
 )
 
 from treasury_intelligence.analytics.returns import (
     build_return_analysis,
 )
 
-from treasury_intelligence.analytics.xeon_returns import (
-    build_xeon_evidence_enriched_return_components,
+from treasury_intelligence.sources.ibkr import (
+    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE,
+)
+
+from treasury_intelligence.sources.xetra import (
+    XEON_XETRA_2024_TURNOVER,
+    XEON_XETRA_XLM_100K,
 )
 
 from treasury_intelligence.sources.xtrackers import (
@@ -36,6 +57,14 @@ POSITION_SIZES_EUR = (
 REFERENCE_YIELD_PCT = 2.273
 HOLDING_PERIOD_DAYS = 365
 
+SPREAD_SLIPPAGE_COMPONENT_ID = (
+    "xeon_spread_slippage"
+)
+
+ACCESS_FEE_COMPONENT_ID = (
+    "xeon_access_fee"
+)
+
 
 def find_component(
     components: tuple,
@@ -44,8 +73,7 @@ def find_component(
     matches = tuple(
         component
         for component in components
-        if component.component_id
-        == component_id
+        if component.component_id == component_id
     )
 
     if len(matches) != 1:
@@ -75,6 +103,85 @@ def format_bps(
     return f"{value:.1f} bps"
 
 
+def build_evidence_enriched_components(
+    position_size_eur: float,
+    current_daily_turnover_eur: float | None,
+) -> tuple:
+    base_components = (
+        build_xeon_return_components(
+            position_size_eur=position_size_eur,
+            reference_yield_pct=(
+                REFERENCE_YIELD_PCT
+            ),
+        )
+    )
+
+    execution_evidence = (
+        assess_xetra_position_execution_evidence(
+            assessment_id=(
+                "xeon_enriched_execution_"
+                f"{int(position_size_eur)}"
+            ),
+            instrument_id=(
+                XEON_INSTRUMENT.instrument_id
+            ),
+            market_id=(
+                XEON_MARKET.market_id
+            ),
+            position_size_eur=(
+                position_size_eur
+            ),
+            xlm_evidence=(
+                XEON_XETRA_XLM_100K
+            ),
+            annual_turnover_evidence=(
+                XEON_XETRA_2024_TURNOVER
+            ),
+            current_daily_turnover_eur=(
+                current_daily_turnover_eur
+            ),
+            notes=(
+                "Public Xetra execution evidence "
+                "used by the XEON inspection fixture."
+            ),
+        )
+    )
+
+    execution_enriched_components = (
+        apply_position_execution_evidence(
+            components=base_components,
+            execution_evidence=execution_evidence,
+            component_id=(
+                SPREAD_SLIPPAGE_COMPONENT_ID
+            ),
+            label=(
+                "XEON position-sized Xetra "
+                "implicit execution cost"
+            ),
+            source="Deutsche Boerse Xetra",
+            notes=(
+                "Published Xetra Liquidity Measure "
+                "is applied only when the requested "
+                "position matches the measured order "
+                "size. No XLM execution-cost value "
+                "is extrapolated to larger positions."
+            ),
+        )
+    )
+
+    return apply_access_cost_evidence(
+        components=execution_enriched_components,
+        access_cost_evidence=(
+            IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+        ),
+        component_id=ACCESS_FEE_COMPONENT_ID,
+        label=(
+            "Published recurring IBKR access "
+            "cost for Germany/Xetra ETF route"
+        ),
+    )
+
+
 def print_evidence_gaps(
     economics,
 ) -> None:
@@ -84,9 +191,7 @@ def print_evidence_gaps(
         )
         return
 
-    print(
-        "BLOCKING EVIDENCE GAPS"
-    )
+    print("BLOCKING EVIDENCE GAPS")
     print()
 
     for index, gap in enumerate(
@@ -128,22 +233,9 @@ def inspect_position(
     )
 
     components = (
-        build_xeon_evidence_enriched_return_components(
-            assessment_id=(
-                "xeon_enriched_return_"
-                f"{int(position_size_eur)}"
-            ),
-            instrument_id=(
-                XEON_INSTRUMENT.instrument_id
-            ),
-            market_id=(
-                XEON_MARKET.market_id
-            ),
+        build_evidence_enriched_components(
             position_size_eur=(
                 position_size_eur
-            ),
-            reference_yield_pct=(
-                REFERENCE_YIELD_PCT
             ),
             current_daily_turnover_eur=(
                 market_observation
@@ -152,22 +244,18 @@ def inspect_position(
         )
     )
 
-    spread_component = (
-        find_component(
-            components=components,
-            component_id=(
-                "xeon_spread_slippage"
-            ),
-        )
+    spread_component = find_component(
+        components=components,
+        component_id=(
+            SPREAD_SLIPPAGE_COMPONENT_ID
+        ),
     )
 
-    access_component = (
-        find_component(
-            components=components,
-            component_id=(
-                "xeon_access_fee"
-            ),
-        )
+    access_component = find_component(
+        components=components,
+        component_id=(
+            ACCESS_FEE_COMPONENT_ID
+        ),
     )
 
     return_analysis = (
@@ -193,9 +281,9 @@ def inspect_position(
             ),
             components=components,
             notes=(
-                "XEON production-style return "
-                "analysis using centralized "
-                "evidence-enriched components."
+                "XEON inspection using generic "
+                "return-evidence enrichment "
+                "primitives."
             ),
         )
     )
@@ -215,12 +303,9 @@ def inspect_position(
         f"Component count:               "
         f"{len(components)}"
     )
-
     print()
 
-    print(
-        "EXECUTION COST"
-    )
+    print("EXECUTION COST")
     print()
 
     print(
@@ -237,12 +322,9 @@ def inspect_position(
         f"Source:                        "
         f"{spread_component.source}"
     )
-
     print()
 
-    print(
-        "ACCESS COST"
-    )
+    print("ACCESS COST")
     print()
 
     print(
@@ -259,12 +341,9 @@ def inspect_position(
         f"Source:                        "
         f"{access_component.source}"
     )
-
     print()
 
-    print(
-        "RETURN ANALYSIS"
-    )
+    print("RETURN ANALYSIS")
     print()
 
     print(
@@ -276,12 +355,9 @@ def inspect_position(
         f"Realistic expected return:     "
         f"{format_pct(return_analysis.realistic_expected_return_pct)}"
     )
-
     print()
 
-    print(
-        "ECONOMICS"
-    )
+    print("ECONOMICS")
     print()
 
     print(
@@ -298,7 +374,6 @@ def inspect_position(
         f"Blocking gaps:                 "
         f"{economics.blocking_gap_count}"
     )
-
     print()
 
     print_evidence_gaps(
@@ -312,21 +387,20 @@ def inspect_position(
 
 def main() -> None:
     print(
-        "XEON EVIDENCE-ENRICHED RETURN BUILDER"
+        "XEON GENERIC EVIDENCE-ENRICHMENT INSPECTION"
     )
     print()
 
     print(
-        "This inspection validates one reusable "
-        "production builder for XEON return "
-        "components."
+        "This inspection validates that XEON can "
+        "be assembled from generic production "
+        "return-evidence enrichment primitives."
     )
     print()
 
     print(
-        "The builder applies public evidence "
-        "according to the requested allocation "
-        "size without extrapolating Xetra XLM."
+        "There is no XEON-specific production "
+        "return orchestrator."
     )
     print()
 
@@ -335,62 +409,43 @@ def main() -> None:
 
     for position_size_eur in POSITION_SIZES_EUR:
         inspect_position(
-            position_size_eur=(
-                position_size_eur
-            ),
+            position_size_eur=position_size_eur,
         )
 
-    print(
-        "EXPECTED RESULT"
-    )
+    print("EXPECTED RESULT")
     print()
 
-    print(
-        "EUR 100,000"
-    )
-
+    print("EUR 100,000")
     print(
         "  Xetra execution cost:        2.4 bps"
     )
-
     print(
         "  IBKR recurring access cost:  0.000%"
     )
-
     print(
         "  Realistic expected return:   2.049%"
     )
-
     print(
         "  Economics:                   complete"
     )
-
     print(
         "  Blocking gaps:               0"
     )
-
     print()
 
-    print(
-        "EUR 500,000"
-    )
-
+    print("EUR 500,000")
     print(
         "  Xetra execution cost:        UNKNOWN"
     )
-
     print(
         "  IBKR recurring access cost:  0.000%"
     )
-
     print(
         "  Realistic expected return:   UNKNOWN"
     )
-
     print(
         "  Economics:                   incomplete"
     )
-
     print(
         "  Blocking gaps:               1"
     )

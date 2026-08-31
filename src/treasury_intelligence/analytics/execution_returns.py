@@ -92,10 +92,7 @@ def apply_position_execution_evidence(
 
     enriched_label = (
         label
-        or (
-            "Position-sized implicit "
-            "execution cost"
-        )
+        or "Position-sized implicit execution cost"
     )
 
     enriched_notes = (
@@ -138,47 +135,3 @@ def apply_position_execution_evidence(
         )
 
     return tuple(enriched_components)
-
-
-XEON_SPREAD_SLIPPAGE_COMPONENT_ID = (
-    "xeon_spread_slippage"
-)
-
-
-def apply_xeon_execution_evidence(
-    components: tuple[ReturnComponent, ...],
-    execution_evidence: PositionExecutionEvidence,
-) -> tuple[ReturnComponent, ...]:
-    """
-    Temporary compatibility wrapper.
-
-    XEON callers will be migrated to the generic
-    apply_position_execution_evidence() interface
-    during architecture consolidation. New
-    analytics code should not use this wrapper.
-    """
-
-    return apply_position_execution_evidence(
-        components=components,
-        execution_evidence=execution_evidence,
-        component_id=(
-            XEON_SPREAD_SLIPPAGE_COMPONENT_ID
-        ),
-        label=(
-            "XEON position-sized Xetra "
-            "implicit execution cost"
-        ),
-        source="Deutsche Boerse Xetra",
-        notes=(
-            "Published Xetra Liquidity Measure "
-            "is applied only because the "
-            "treasury position exactly matches "
-            "the order size for which the XLM "
-            "was measured. The observed "
-            "roundtrip implicit transaction "
-            "cost includes market impact for "
-            "that measured order size. This "
-            "value must not be extrapolated to "
-            "larger positions."
-        ),
-    )

@@ -8,12 +8,28 @@ SRC_DIR = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_DIR))
 
 
+from treasury_intelligence.analytics.access_returns import (
+    apply_access_cost_evidence,
+)
+
 from treasury_intelligence.analytics.economics import (
     build_economics_evidence_assessment,
 )
 
 from treasury_intelligence.analytics.eligibility import (
     evaluate_eligibility,
+)
+
+from treasury_intelligence.analytics.execution_evidence import (
+    assess_xetra_position_execution_evidence,
+)
+
+from treasury_intelligence.analytics.execution_returns import (
+    apply_position_execution_evidence,
+)
+
+from treasury_intelligence.analytics.frictions import (
+    build_xeon_return_components,
 )
 
 from treasury_intelligence.analytics.portfolio import (
@@ -36,10 +52,6 @@ from treasury_intelligence.analytics.risk_assessments import (
     get_xeon_risk_assessments,
 )
 
-from treasury_intelligence.analytics.xeon_returns import (
-    build_xeon_evidence_enriched_return_components,
-)
-
 from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
@@ -54,6 +66,15 @@ from treasury_intelligence.models.opportunities import (
 
 from treasury_intelligence.models.portfolio_construction import (
     AllocationInstruction,
+)
+
+from treasury_intelligence.sources.ibkr import (
+    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE,
+)
+
+from treasury_intelligence.sources.xetra import (
+    XEON_XETRA_2024_TURNOVER,
+    XEON_XETRA_XLM_100K,
 )
 
 from treasury_intelligence.sources.xtrackers import (
@@ -71,8 +92,15 @@ POSITION_SIZES_EUR = (
 )
 
 HOLDING_PERIOD_DAYS = 365
-
 REFERENCE_YIELD_PCT = 2.273
+
+SPREAD_SLIPPAGE_COMPONENT_ID = (
+    "xeon_spread_slippage"
+)
+
+ACCESS_FEE_COMPONENT_ID = (
+    "xeon_access_fee"
+)
 
 
 def format_pct(
@@ -102,9 +130,7 @@ def build_xeon_position(
         access_route_id=(
             XEON_IBKR_ACCESS.access_route_id
         ),
-        position_size_eur=(
-            position_size_eur
-        ),
+        position_size_eur=position_size_eur,
         entry_supported=None,
         immediate_exit_supported=None,
         remaining_entry_capacity_eur=None,
@@ -130,10 +156,8 @@ def build_xeon_position(
         executable_economics_known=False,
         rejection_reason=None,
         notes=(
-            "Position-size-specific XEON pipeline "
-            "analysis using public Xetra market "
-            "activity and separately modeled "
-            "execution-cost evidence."
+            "Position-size-specific XEON "
+            "inspection fixture."
         ),
     )
 
@@ -145,21 +169,15 @@ def build_xeon_liquidity_assessment(
         assessment_id=(
             f"{position.analysis_id}_liquidity"
         ),
-        instrument_id=(
-            position.instrument_id
-        ),
-        market_id=(
-            position.market_id
-        ),
+        instrument_id=position.instrument_id,
+        market_id=position.market_id,
         access_route_id=(
             position.access_route_id
         ),
         position_size_eur=(
             position.position_size_eur
         ),
-        evidence_level=(
-            "market_activity"
-        ),
+        evidence_level="market_activity",
         evidence_rank=1,
         market_activity_observed=True,
         displayed_quote_observed=False,
@@ -170,23 +188,99 @@ def build_xeon_liquidity_assessment(
         sufficient_for_immediate_liquidity=False,
         strongest_supported_claim=(
             "Observed market activity establishes "
-            "that XEON trades on the sampled market. "
-            "Published Xetra XLM may establish "
-            "position-sized implicit execution cost "
-            "for a matching order size, but does not "
-            "by itself establish immediate executable "
-            "bid depth for the modeled position."
+            "that XEON trades on the sampled "
+            "market. Position-sized execution-cost "
+            "evidence remains separate from proof "
+            "of immediate executable exit depth."
         ),
         missing_evidence=(
-            "Position-size executable bid/ask depth "
-            "or equivalent immediate-liquidity "
-            "evidence is required."
+            "Position-size executable bid/ask "
+            "depth or equivalent immediate-"
+            "liquidity evidence is required."
         ),
         notes=(
-            "Liquidity remains deliberately separate "
-            "from execution-cost evidence. XLM "
-            "transaction-cost evidence is not treated "
-            "as proof of immediate exit capacity."
+            "Liquidity remains deliberately "
+            "separate from execution-cost "
+            "evidence."
+        ),
+    )
+
+
+def build_evidence_enriched_components(
+    position_size_eur: float,
+    current_daily_turnover_eur: float | None,
+) -> tuple:
+    base_components = (
+        build_xeon_return_components(
+            position_size_eur=position_size_eur,
+            reference_yield_pct=(
+                REFERENCE_YIELD_PCT
+            ),
+        )
+    )
+
+    execution_evidence = (
+        assess_xetra_position_execution_evidence(
+            assessment_id=(
+                "xeon_pipeline_execution_"
+                f"{int(position_size_eur)}"
+            ),
+            instrument_id=(
+                XEON_INSTRUMENT.instrument_id
+            ),
+            market_id=(
+                XEON_MARKET.market_id
+            ),
+            position_size_eur=(
+                position_size_eur
+            ),
+            xlm_evidence=(
+                XEON_XETRA_XLM_100K
+            ),
+            annual_turnover_evidence=(
+                XEON_XETRA_2024_TURNOVER
+            ),
+            current_daily_turnover_eur=(
+                current_daily_turnover_eur
+            ),
+            notes=(
+                "Position-sized public Xetra "
+                "execution evidence used by the "
+                "XEON inspection fixture."
+            ),
+        )
+    )
+
+    execution_enriched_components = (
+        apply_position_execution_evidence(
+            components=base_components,
+            execution_evidence=execution_evidence,
+            component_id=(
+                SPREAD_SLIPPAGE_COMPONENT_ID
+            ),
+            label=(
+                "XEON position-sized Xetra "
+                "implicit execution cost"
+            ),
+            source="Deutsche Boerse Xetra",
+            notes=(
+                "Published Xetra XLM is applied "
+                "only when the requested position "
+                "matches the measured order size. "
+                "No XLM value is extrapolated."
+            ),
+        )
+    )
+
+    return apply_access_cost_evidence(
+        components=execution_enriched_components,
+        access_cost_evidence=(
+            IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+        ),
+        component_id=ACCESS_FEE_COMPONENT_ID,
+        label=(
+            "Published recurring IBKR access "
+            "cost for Germany/Xetra ETF route"
         ),
     )
 
@@ -198,16 +292,11 @@ def build_xeon_candidate(
         get_xeon_market_observation()
     )
 
-    position = (
-        build_xeon_position(
-            position_size_eur=(
-                position_size_eur
-            ),
-            observed_daily_turnover_eur=(
-                market_observation
-                .daily_turnover_eur
-            ),
-        )
+    position = build_xeon_position(
+        position_size_eur=position_size_eur,
+        observed_daily_turnover_eur=(
+            market_observation.daily_turnover_eur
+        ),
     )
 
     liquidity = (
@@ -216,14 +305,12 @@ def build_xeon_candidate(
         )
     )
 
-    eligibility = (
-        evaluate_eligibility(
-            mandate=MODEL_COMPANY_MANDATE,
-            instrument=XEON_INSTRUMENT,
-            market=XEON_MARKET,
-            accessibility=XEON_ACCESSIBILITY,
-            position=position,
-        )
+    eligibility = evaluate_eligibility(
+        mandate=MODEL_COMPANY_MANDATE,
+        instrument=XEON_INSTRUMENT,
+        market=XEON_MARKET,
+        accessibility=XEON_ACCESSIBILITY,
+        position=position,
     )
 
     base_risk = (
@@ -239,23 +326,8 @@ def build_xeon_candidate(
     )
 
     components = (
-        build_xeon_evidence_enriched_return_components(
-            assessment_id=(
-                "xeon_pipeline_execution_"
-                f"{int(position_size_eur)}"
-            ),
-            instrument_id=(
-                XEON_INSTRUMENT.instrument_id
-            ),
-            market_id=(
-                XEON_MARKET.market_id
-            ),
-            position_size_eur=(
-                position_size_eur
-            ),
-            reference_yield_pct=(
-                REFERENCE_YIELD_PCT
-            ),
+        build_evidence_enriched_components(
+            position_size_eur=position_size_eur,
             current_daily_turnover_eur=(
                 market_observation
                 .daily_turnover_eur
@@ -263,34 +335,28 @@ def build_xeon_candidate(
         )
     )
 
-    return_analysis = (
-        build_return_analysis(
-            analysis_id=(
-                "xeon_pipeline_return_"
-                f"{int(position_size_eur)}"
-            ),
-            instrument_id=(
-                XEON_INSTRUMENT.instrument_id
-            ),
-            market_id=(
-                XEON_MARKET.market_id
-            ),
-            access_route_id=(
-                XEON_IBKR_ACCESS.access_route_id
-            ),
-            position_size_eur=(
-                position_size_eur
-            ),
-            holding_period_days=(
-                HOLDING_PERIOD_DAYS
-            ),
-            components=components,
-            notes=(
-                "XEON full candidate-pipeline return "
-                "analysis using centralized "
-                "evidence-enriched return components."
-            ),
-        )
+    return_analysis = build_return_analysis(
+        analysis_id=(
+            "xeon_pipeline_return_"
+            f"{int(position_size_eur)}"
+        ),
+        instrument_id=(
+            XEON_INSTRUMENT.instrument_id
+        ),
+        market_id=XEON_MARKET.market_id,
+        access_route_id=(
+            XEON_IBKR_ACCESS.access_route_id
+        ),
+        position_size_eur=position_size_eur,
+        holding_period_days=(
+            HOLDING_PERIOD_DAYS
+        ),
+        components=components,
+        notes=(
+            "XEON candidate inspection using "
+            "generic evidence-enrichment "
+            "primitives."
+        ),
     )
 
     economics = (
@@ -317,8 +383,8 @@ def build_xeon_candidate(
             economics=economics,
             return_analysis=return_analysis,
             notes=(
-                "8B.5 position-size candidate "
-                "integration."
+                "Position-size candidate "
+                "integration inspection."
             ),
         )
     )
@@ -366,12 +432,10 @@ def build_construction_for_candidate(
             f"{int(candidate.position_size_eur)}"
         ),
         mandate=MODEL_COMPANY_MANDATE,
-        candidates=(
-            candidate,
-        ),
+        candidates=(candidate,),
         instructions=instructions,
         notes=(
-            "8B.5 construction follows upstream "
+            "Construction follows upstream "
             "candidate readiness and does not "
             "force an allocation."
         ),
@@ -416,9 +480,7 @@ def print_case(
     )
     print()
 
-    print(
-        "POSITION"
-    )
+    print("POSITION")
     print()
 
     print(
@@ -436,12 +498,9 @@ def print_case(
         f"Immediate exit supported:     "
         f"{position.immediate_exit_supported}"
     )
-
     print()
 
-    print(
-        "LIQUIDITY"
-    )
+    print("LIQUIDITY")
     print()
 
     print(
@@ -468,36 +527,27 @@ def print_case(
         f"Sufficient evidence:          "
         f"{liquidity.sufficient_for_immediate_liquidity}"
     )
-
     print()
 
-    print(
-        "ELIGIBILITY"
-    )
+    print("ELIGIBILITY")
     print()
 
     print(
         f"Overall status:               "
         f"{eligibility.overall_status}"
     )
-
     print()
 
-    print(
-        "POSITION-AWARE RISK"
-    )
+    print("POSITION-AWARE RISK")
     print()
 
     print(
         f"Liquidity risk status:        "
         f"{liquidity_risk.position_risk_status}"
     )
-
     print()
 
-    print(
-        "ECONOMICS"
-    )
+    print("ECONOMICS")
     print()
 
     print(
@@ -519,12 +569,9 @@ def print_case(
         f"Economics blocking gaps:      "
         f"{economics.blocking_gap_count}"
     )
-
     print()
 
-    print(
-        "INTEGRATED CANDIDATE"
-    )
+    print("INTEGRATED CANDIDATE")
     print()
 
     print(
@@ -569,23 +616,16 @@ def print_case(
 
     print_reasons(
         title="BLOCKING REASONS",
-        values=(
-            candidate.blocking_reasons
-        ),
+        values=candidate.blocking_reasons,
     )
 
     print_reasons(
         title="EVIDENCE REQUIRED",
-        values=(
-            candidate.evidence_requirements
-        ),
+        values=candidate.evidence_requirements,
     )
 
     print()
-
-    print(
-        "PORTFOLIO CONSTRUCTION"
-    )
+    print("PORTFOLIO CONSTRUCTION")
     print()
 
     print(
@@ -610,14 +650,11 @@ def print_case(
 
     if construction.validation_issues:
         print()
-
         print(
             "CONSTRUCTION VALIDATION ISSUES"
         )
 
-        for issue in (
-            construction.validation_issues
-        ):
+        for issue in construction.validation_issues:
             print(
                 f"  - {issue}"
             )
@@ -631,7 +668,6 @@ def main() -> None:
     print(
         "XEON POSITION-SIZE FULL CANDIDATE PIPELINE"
     )
-
     print()
 
     print(
@@ -641,14 +677,18 @@ def main() -> None:
         "economics, candidate, and portfolio-"
         "construction layers."
     )
+    print()
 
+    print(
+        "XEON-specific return orchestration has "
+        "been removed from production analytics."
+    )
     print()
 
     print(
         "Execution-cost evidence and immediate-"
         "liquidity evidence remain separate."
     )
-
     print()
 
     print("=" * 100)
@@ -656,29 +696,23 @@ def main() -> None:
 
     results = []
 
-    for position_size_eur in (
-        POSITION_SIZES_EUR
-    ):
-        result = (
-            build_xeon_candidate(
-                position_size_eur=(
-                    position_size_eur
-                ),
-            )
+    for position_size_eur in POSITION_SIZES_EUR:
+        result = build_xeon_candidate(
+            position_size_eur=(
+                position_size_eur
+            ),
         )
 
-        results.append(
-            result
-        )
+        results.append(result)
 
         print_case(
             result=result,
         )
 
-    print(
-        "POSITION-SIZE COMPARISON"
-    )
+    result_100k = results[0]
+    result_500k = results[1]
 
+    print("POSITION-SIZE COMPARISON")
     print()
 
     print(
@@ -687,15 +721,7 @@ def main() -> None:
         f"{'EUR 500k':<25}"
     )
 
-    print(
-        "-" * 85
-    )
-
-    for result in results:
-        pass
-
-    result_100k = results[0]
-    result_500k = results[1]
+    print("-" * 85)
 
     rows = (
         (
@@ -770,38 +796,28 @@ def main() -> None:
         )
 
     print()
+    print("EXPECTED INTERPRETATION")
+    print()
 
     print(
-        "INTERPRETATION"
+        "EUR 100k retains evidence-complete "
+        "return economics, while its remaining "
+        "recommendation blocker is non-economic."
     )
     print()
 
     print(
-        "EUR 100k now has evidence-complete "
-        "return economics. If it remains "
-        "non-ready, the output identifies the "
-        "remaining non-economic gate rather than "
-        "silently treating economics completion "
-        "as recommendation readiness."
+        "EUR 500k remains economically incomplete "
+        "because the EUR 100k Xetra XLM observation "
+        "is not extrapolated."
     )
-
     print()
 
     print(
-        "EUR 500k should remain economically "
-        "incomplete because the EUR 100k Xetra "
-        "XLM observation is not extrapolated to "
-        "five times the measured order size."
-    )
-
-    print()
-
-    print(
-        "Portfolio construction follows the "
-        "upstream candidate assessment. It does "
-        "not allocate capital merely because an "
-        "instrument has an attractive or "
-        "calculable return."
+        "Portfolio construction continues to "
+        "follow upstream candidate readiness and "
+        "does not allocate merely because a "
+        "return can be calculated."
     )
 
 
