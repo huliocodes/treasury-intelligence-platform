@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from treasury_intelligence.analytics.btf_risk_evidence import (
+    get_btf_recommendation_risk_observations,
+)
+
 from treasury_intelligence.analytics.ernx_risk_evidence import (
     get_ernx_recommendation_risk_observations,
 )
@@ -28,6 +32,7 @@ from treasury_intelligence.models.risk_assessments import (
 ASSESSED_AT = "2026-08-29"
 ERNX_ASSESSED_AT = "2026-08-31"
 XEON_ASSESSED_AT = "2026-08-31"
+BTF_ASSESSED_AT = "2026-08-31"
 
 
 def _observation_ids(
@@ -231,31 +236,54 @@ def get_aave_eurc_risk_assessments(
 
 def get_btf_risk_assessments(
 ) -> tuple[RiskAssessment, ...]:
-    observations = get_btf_risk_observations()
+    observations = (
+        get_btf_risk_observations()
+        + get_btf_recommendation_risk_observations()
+    )
 
     instrument_id = observations[0].instrument_id
     market_id = observations[0].market_id
 
     return (
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "btf_2027_03_10_principal_credit"
             ),
             instrument_id=instrument_id,
             market_id=market_id,
             risk_dimension="principal_credit",
+            risk_level="low",
             rationale=(
-                "The observation layer identifies the French "
-                "Republic as issuer, but issuer identity alone is "
-                "not sufficient to assign a defensible qualitative "
-                "credit-risk level. Sovereign credit evidence has "
-                "not yet been incorporated."
+                "The security is a direct short-term "
+                "obligation of the French Republic. "
+                "France remains strongly investment-grade: "
+                "Fitch affirmed its A+ sovereign rating "
+                "with a Stable Outlook on 28 August 2026, "
+                "while AFT reports a broader set of major "
+                "agency sovereign ratings spanning A+ "
+                "through the AA and AAA ranges. Sovereign "
+                "default and fiscal deterioration are "
+                "therefore remote but not negligible, "
+                "particularly given weaker fiscal metrics "
+                "and negative outlooks at some agencies. "
+                "This supports a low rather than very-low "
+                "principal/credit risk classification."
             ),
             supporting_observation_ids=(
                 _observation_ids(
                     observations,
                     "principal_credit",
                 )
+            ),
+            assessed_at=BTF_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Low does not mean equivalent to insured "
+                "cash or a risk-free asset. The assessment "
+                "reflects strong investment-grade French "
+                "sovereign credit quality together with "
+                "non-zero fiscal, political, downgrade, "
+                "and sovereign-default risk."
             ),
         ),
         RiskAssessment(
@@ -325,7 +353,7 @@ def get_btf_risk_assessments(
             assessed_at=ASSESSED_AT,
             evidence_sufficient=True,
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "btf_2027_03_10_structural_counterparty"
             ),
@@ -334,11 +362,35 @@ def get_btf_risk_assessments(
             risk_dimension=(
                 "structural_counterparty"
             ),
+            risk_level="low",
             rationale=(
-                "The current observation set does not yet contain "
-                "sufficient custody, brokerage, settlement, or "
-                "market-infrastructure evidence for a qualitative "
-                "structural/counterparty assessment."
+                "The position is a direct French Republic "
+                "Treasury bill rather than a fund share, "
+                "structured product, derivative claim, "
+                "tokenized wrapper, or lending-protocol "
+                "position. It therefore avoids material "
+                "investment-wrapper and derivative-"
+                "counterparty dependencies. Residual "
+                "broker, custodian, depository, settlement, "
+                "and administrative dependencies remain, "
+                "so structural risk is low rather than "
+                "not applicable or negligible."
+            ),
+            supporting_observation_ids=(
+                _observation_ids(
+                    observations,
+                    "structural_counterparty",
+                )
+            ),
+            assessed_at=BTF_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "This assessment does not assert that "
+                "settlement infrastructure cannot fail. "
+                "It reflects the comparatively simple "
+                "direct-sovereign-security structure and "
+                "separates ordinary custody and brokerage "
+                "operations from the issuer's credit risk."
             ),
         ),
         _not_applicable_assessment(
@@ -356,7 +408,7 @@ def get_btf_risk_assessments(
                 "the structural or operational dimensions."
             ),
         ),
-        _unknown_assessment(
+        RiskAssessment(
             assessment_id=(
                 "btf_2027_03_10_operational_regulatory"
             ),
@@ -365,12 +417,38 @@ def get_btf_risk_assessments(
             risk_dimension=(
                 "operational_regulatory"
             ),
+            risk_level="low",
             rationale=(
-                "The access route is considered eligible for V1, "
-                "but the current risk-observation set does not yet "
-                "contain enough execution, custody, accounting, tax, "
-                "and operational evidence for a qualitative "
-                "assessment."
+                "The modeled route uses a conventional "
+                "regulated corporate brokerage to hold "
+                "a conventional sovereign security. "
+                "IBKR Ireland states that client money "
+                "is segregated, fully paid customer "
+                "securities are held through designated "
+                "depositories and custodians for clients' "
+                "benefit, and customer securities and "
+                "money are reconciled daily. These controls "
+                "provide sufficient recommendation-stage "
+                "evidence for a low operational and "
+                "regulatory risk assessment while ordinary "
+                "broker, custody, settlement, account-"
+                "configuration, and administrative risks "
+                "remain."
+            ),
+            supporting_observation_ids=(
+                _observation_ids(
+                    observations,
+                    "operational_regulatory",
+                )
+            ),
+            assessed_at=BTF_ASSESSED_AT,
+            evidence_sufficient=True,
+            notes=(
+                "Company-specific accounting, tax "
+                "treatment, internal authorization, final "
+                "account setup, and instrument permissions "
+                "remain execution-stage checks unless a "
+                "specific restriction is discovered."
             ),
         ),
     )
