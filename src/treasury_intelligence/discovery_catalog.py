@@ -212,16 +212,20 @@ def _icash() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="InterCapital",
         possible_access_route=(
-            "Corporate brokerage access through Ljubljana Stock Exchange."
+            "IBKR corporate account via Ljubljana Stock Exchange."
         ),
-        slovenian_doo_access_status="plausible",
-        access_evidence_sufficient=False,
+        slovenian_doo_access_status="verified",
+        access_evidence_sufficient=True,
         discovery_priority="high",
         mandate_relevance="high",
-        source_summary="Ljubljana Stock Exchange instrument listing.",
+        source_summary=(
+            "Ljubljana Stock Exchange listing and IBKR Ljubljana "
+            "Stock Exchange market-access evidence."
+        ),
         notes=(
-            "Exact current yield, fund scale, liquidity, fees and "
-            "corporate execution route require full verification."
+            "Discovery access verified in Milestone 13C.3. Exact current "
+            "yield, fund scale, liquidity, fees and €5 million execution "
+            "capacity still require full analysis."
         ),
     )
 
@@ -262,6 +266,10 @@ def _blackrock_ics_core_acc() -> DiscoveryOpportunity:
         yield_as_of="2026-08-31",
         liquidity_summary="Daily dealing with approximately T+1 settlement.",
         source_summary="BlackRock institutional liquidity fund materials.",
+        notes=(
+            "Exact Slovenian corporate subscription, distributor or "
+            "custody route remains unresolved."
+        ),
     )
 
 
@@ -396,10 +404,10 @@ def _franklin_euro_short_maturity() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="Franklin Templeton",
         possible_access_route=(
-            "European corporate brokerage route to an eligible listing."
+            "IBKR corporate account via Xetra, ticker FVSA."
         ),
-        slovenian_doo_access_status="plausible",
-        access_evidence_sufficient=False,
+        slovenian_doo_access_status="verified",
+        access_evidence_sufficient=True,
         discovery_priority="high",
         mandate_relevance="high",
         preliminary_yield_pct=2.70,
@@ -408,7 +416,15 @@ def _franklin_euro_short_maturity() -> DiscoveryOpportunity:
             "UCITS ETF with approximately €596 million fund scale "
             "at discovery."
         ),
-        source_summary="Franklin Templeton fund materials.",
+        source_summary=(
+            "Franklin Templeton exact share-class and Xetra listing "
+            "evidence plus IBKR Xetra market access."
+        ),
+        notes=(
+            "Discovery access verified in Milestone 13C.3. Position-aware "
+            "liquidity, execution cost and realistic net return remain "
+            "to be analyzed."
+        ),
     )
 
 
@@ -416,7 +432,7 @@ def _eur_government_0_1y_etf() -> DiscoveryOpportunity:
     return DiscoveryOpportunity(
         opportunity_id="ishares_eur_government_0_1y",
         strategy_id="eur_short_sovereign_bond_basket",
-        implementation_id="ishares_eur_government_0_1y",
+        implementation_id="IE00B3FH7618",
         display_name="iShares € Govt Bond 0-1yr",
         full_name="iShares € Govt Bond 0-1yr UCITS ETF",
         category="short_duration_government_bond_etf",
@@ -435,19 +451,27 @@ def _eur_government_0_1y_etf() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="BlackRock / iShares",
         possible_access_route=(
-            "European corporate brokerage route to an eligible listing."
+            "IBKR corporate account via Xetra, symbol EUN6."
         ),
-        slovenian_doo_access_status="plausible",
-        access_evidence_sufficient=False,
+        slovenian_doo_access_status="verified",
+        access_evidence_sufficient=True,
         discovery_priority="high",
         mandate_relevance="high",
         preliminary_yield_pct=2.62,
         yield_as_of="2026-08-27",
         liquidity_summary=(
-            "Large UCITS sovereign-bond ETF; exact implementation "
-            "liquidity requires verification."
+            "UCITS sovereign-bond ETF with approximately €1.195 billion "
+            "fund assets as of 2026-08-31."
         ),
-        source_summary="iShares fund materials.",
+        source_summary=(
+            "BlackRock fund evidence, Deutsche Börse exact ISIN listing "
+            "and IBKR Xetra market access."
+        ),
+        notes=(
+            "Discovery access verified in Milestone 13C.3. Full "
+            "position-aware liquidity, holdings risk and realistic "
+            "return analysis remain outstanding."
+        ),
     )
 
 
@@ -566,9 +590,9 @@ def _french_btf_aug_2027() -> DiscoveryOpportunity:
     return DiscoveryOpportunity(
         opportunity_id="french_btf_aug_2027",
         strategy_id="french_sovereign_bills",
-        implementation_id="btf_2027_08_11",
+        implementation_id="FR0129704187",
         display_name="French BTF Aug 2027",
-        full_name="French Republic BTF Maturing 11 August 2027",
+        full_name="French Republic BTF FR0129704187",
         category="direct_sovereign_bill",
         short_description=(
             "Short-term EUR zero-coupon Treasury bill issued by France."
@@ -584,18 +608,25 @@ def _french_btf_aug_2027() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="French Republic",
         possible_access_route="IBKR Europe OTC bond market.",
-        slovenian_doo_access_status="plausible",
-        access_evidence_sufficient=False,
+        slovenian_doo_access_status="verified",
+        access_evidence_sufficient=True,
         discovery_priority="high",
         mandate_relevance="high",
         preliminary_yield_pct=2.860,
         yield_as_of="2026-08-31",
         maturity_date="2027-08-11",
-        source_summary="Agence France Trésor auction results.",
+        liquidity_summary=(
+            "Approximately €6.237 billion was outstanding before the "
+            "2026-08-31 reopening, which issued another €1.898 billion."
+        ),
+        source_summary=(
+            "Agence France Trésor exact security and auction evidence "
+            "plus existing V1 French-BTF corporate access route."
+        ),
         notes=(
-            "Higher observed auction yield than the existing V1 BTF, "
-            "but exact security and execution evidence still require "
-            "full analysis."
+            "Discovery access verified in Milestone 13C.3. Full "
+            "secondary-market execution, position-size liquidity and "
+            "realistic net return still require analysis."
         ),
     )
 
@@ -630,8 +661,8 @@ def _dutch_dtc() -> DiscoveryOpportunity:
         mandate_relevance="high",
         source_summary="Dutch State Treasury Agency issuance calendar.",
         notes=(
-            "Exact current security and current yield still require "
-            "primary-source extraction."
+            "Exact current security, current yield and Slovenian corporate "
+            "secondary-market execution route remain unresolved."
         ),
     )
 
@@ -658,16 +689,18 @@ def _belgian_treasury_certificate() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="Kingdom of Belgium",
         possible_access_route=(
-            "Institutional or corporate secondary-market bond route."
+            "Euronext Brussels, OTC or institutional secondary-market "
+            "route through a suitable corporate broker."
         ),
         slovenian_doo_access_status="unknown",
         access_evidence_sufficient=False,
         discovery_priority="high",
         mandate_relevance="high",
-        source_summary="Belgian Debt Agency issuance information.",
+        source_summary="Belgian Debt Agency issuance and market information.",
         notes=(
-            "Large active Treasury Certificate programme identified; "
-            "specific current security and yield remain to be selected."
+            "Secondary-market investability is established, but the exact "
+            "Slovenian corporate broker route and specific current security "
+            "remain unresolved."
         ),
     )
 
@@ -702,8 +735,8 @@ def _austrian_treasury_bill() -> DiscoveryOpportunity:
         mandate_relevance="high",
         source_summary="Austrian Treasury 2026 bill programme.",
         notes=(
-            "Active 2026 Treasury-bill programme identified; exact "
-            "current implementation requires selection."
+            "Exact preferred bill, current economics and Slovenian corporate "
+            "execution route remain unresolved."
         ),
     )
 
@@ -766,7 +799,8 @@ def _eu_bill_nov_2026() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="European Union",
         possible_access_route=(
-            "Secondary-market bond access through a corporate broker."
+            "Secondary-market bond access through a suitable "
+            "corporate broker or dealer."
         ),
         slovenian_doo_access_status="unknown",
         access_evidence_sufficient=False,
@@ -776,6 +810,10 @@ def _eu_bill_nov_2026() -> DiscoveryOpportunity:
         yield_as_of="2026-08-05",
         maturity_date="2026-11-06",
         source_summary="European Commission EU-Bill auction results.",
+        notes=(
+            "Institutional market is established, but the exact Slovenian "
+            "corporate secondary-market execution route remains unresolved."
+        ),
     )
 
 
@@ -801,7 +839,8 @@ def _eu_bill_feb_2027() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="European Union",
         possible_access_route=(
-            "Secondary-market bond access through a corporate broker."
+            "Secondary-market bond access through a suitable "
+            "corporate broker or dealer."
         ),
         slovenian_doo_access_status="unknown",
         access_evidence_sufficient=False,
@@ -811,6 +850,10 @@ def _eu_bill_feb_2027() -> DiscoveryOpportunity:
         yield_as_of="2026-08-05",
         maturity_date="2027-02-05",
         source_summary="European Commission EU-Bill auction results.",
+        notes=(
+            "Institutional market is established, but the exact Slovenian "
+            "corporate secondary-market execution route remains unresolved."
+        ),
     )
 
 
@@ -836,7 +879,8 @@ def _eu_bill_aug_2027() -> DiscoveryOpportunity:
         currency="EUR",
         issuer_manager_protocol="European Union",
         possible_access_route=(
-            "Secondary-market bond access through a corporate broker."
+            "Secondary-market bond access through a suitable "
+            "corporate broker or dealer."
         ),
         slovenian_doo_access_status="unknown",
         access_evidence_sufficient=False,
@@ -850,6 +894,10 @@ def _eu_bill_aug_2027() -> DiscoveryOpportunity:
             "Approximately €1.9 billion issued at the discovery auction."
         ),
         source_summary="European Commission EU-Bill auction results.",
+        notes=(
+            "Institutional market is established, but the exact Slovenian "
+            "corporate secondary-market execution route remains unresolved."
+        ),
     )
 
 
