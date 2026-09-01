@@ -7,6 +7,10 @@ from treasury_intelligence.analytics.bond_returns import (
     build_ibkr_europe_otc_bond_return_components,
 )
 
+from treasury_intelligence.analytics.btf_risk_assessments import (
+    get_btf_2027_08_11_risk_assessments,
+)
+
 from treasury_intelligence.analytics.bubill_risk_assessments import (
     get_bubill_risk_assessments,
 )
@@ -55,8 +59,20 @@ from treasury_intelligence.models.mandates import (
     TreasuryMandate,
 )
 
+from treasury_intelligence.models.opportunities import (
+    Accessibility,
+    Instrument,
+    Market,
+    MarketObservation,
+    OpportunitySnapshot,
+)
+
 from treasury_intelligence.models.portfolio import (
     PortfolioCandidateAssessment,
+)
+
+from treasury_intelligence.models.risk_assessments import (
+    RiskAssessment,
 )
 
 from treasury_intelligence.sources.aave import (
@@ -98,8 +114,13 @@ from treasury_intelligence.sources.france import (
     BTF_2027_03_10,
     BTF_2027_03_10_ACCESSIBILITY,
     BTF_2027_03_10_MARKET,
+    BTF_2027_08_11,
+    BTF_2027_08_11_ACCESSIBILITY,
+    BTF_2027_08_11_MARKET,
     get_btf_2027_03_10_market_observation,
     get_btf_2027_03_10_snapshot,
+    get_btf_2027_08_11_market_observation,
+    get_btf_2027_08_11_snapshot,
 )
 
 from treasury_intelligence.sources.germany import (
@@ -434,53 +455,48 @@ def build_ernx_universe_candidate(
     )
 
 
-def build_btf_universe_candidate(
+def _build_french_btf_universe_candidate(
+    *,
     position_size_eur: float,
-    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
-    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    mandate: TreasuryMandate,
+    holding_period_days: int,
+    instrument: Instrument,
+    market: Market,
+    accessibility: Accessibility,
+    snapshot: OpportunitySnapshot,
+    market_observation: MarketObservation,
+    risk_assessments: tuple[RiskAssessment, ...],
+    assessment_key: str,
+    label: str,
 ) -> PortfolioCandidateAssessment:
-    snapshot = (
-        get_btf_2027_03_10_snapshot()
-    )
-
-    market_observation = (
-        get_btf_2027_03_10_market_observation()
-    )
-
     size_id = _position_size_id(
         position_size_eur
     )
 
     return analyze_opportunity_position(
         assessment_id=(
-            f"btf_{size_id}_universe"
+            f"{assessment_key}_{size_id}_universe"
         ),
-        label="French BTF",
+        label=label,
         mandate=mandate,
-        instrument=BTF_2027_03_10,
-        market=BTF_2027_03_10_MARKET,
-        accessibility=(
-            BTF_2027_03_10_ACCESSIBILITY
-        ),
+        instrument=instrument,
+        market=market,
+        accessibility=accessibility,
         snapshot=snapshot,
         position_size_eur=position_size_eur,
         holding_period_days=holding_period_days,
         position_builder=lambda size: (
             build_sovereign_bill_position_analysis(
                 snapshot=snapshot,
-                market_observation=(
-                    market_observation
-                ),
+                market_observation=market_observation,
                 position_size_eur=size,
             )
         ),
-        risk_assessments=(
-            get_btf_risk_assessments()
-        ),
+        risk_assessments=risk_assessments,
         return_component_builder=lambda size: (
             build_ibkr_europe_otc_bond_return_components(
-                instrument=BTF_2027_03_10,
-                market=BTF_2027_03_10_MARKET,
+                instrument=instrument,
+                market=market,
                 snapshot=snapshot,
                 position_size_eur=size,
                 reference_yield_includes_product_fee=None,
@@ -495,8 +511,54 @@ def build_btf_universe_candidate(
         market_observation=market_observation,
         notes=(
             "Production universe candidate built for "
-            "an arbitrary French BTF position size."
+            f"an arbitrary {label} position size."
         ),
+    )
+
+
+def build_btf_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    return _build_french_btf_universe_candidate(
+        position_size_eur=position_size_eur,
+        mandate=mandate,
+        holding_period_days=holding_period_days,
+        instrument=BTF_2027_03_10,
+        market=BTF_2027_03_10_MARKET,
+        accessibility=BTF_2027_03_10_ACCESSIBILITY,
+        snapshot=get_btf_2027_03_10_snapshot(),
+        market_observation=(
+            get_btf_2027_03_10_market_observation()
+        ),
+        risk_assessments=get_btf_risk_assessments(),
+        assessment_key="btf",
+        label="French BTF Mar 2027",
+    )
+
+
+def build_btf_2027_08_11_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    return _build_french_btf_universe_candidate(
+        position_size_eur=position_size_eur,
+        mandate=mandate,
+        holding_period_days=holding_period_days,
+        instrument=BTF_2027_08_11,
+        market=BTF_2027_08_11_MARKET,
+        accessibility=BTF_2027_08_11_ACCESSIBILITY,
+        snapshot=get_btf_2027_08_11_snapshot(),
+        market_observation=(
+            get_btf_2027_08_11_market_observation()
+        ),
+        risk_assessments=(
+            get_btf_2027_08_11_risk_assessments()
+        ),
+        assessment_key="btf_2027_08_11",
+        label="French BTF Aug 2027",
     )
 
 
@@ -867,9 +929,16 @@ def build_model_company_opportunity_universe(
         ),
         UniverseOpportunity(
             key="btf",
-            label="French BTF",
+            label="French BTF Mar",
             candidate_builder=(
                 build_btf_universe_candidate
+            ),
+        ),
+        UniverseOpportunity(
+            key="btf_aug_2027",
+            label="French BTF Aug",
+            candidate_builder=(
+                build_btf_2027_08_11_universe_candidate
             ),
         ),
         UniverseOpportunity(

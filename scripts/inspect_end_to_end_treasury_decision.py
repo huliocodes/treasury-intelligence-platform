@@ -24,6 +24,7 @@ from treasury_intelligence.analytics.portfolio_proposals import (
 )
 
 from treasury_intelligence.analytics.recommendation_candidates import (
+    build_btf_2027_08_11_recommendation_candidate,
     build_btf_recommendation_candidate,
     build_bubill_recommendation_candidate,
     build_ernx_recommendation_candidate,
@@ -56,9 +57,16 @@ ALLOCATION_OPPORTUNITIES = (
     ),
     AllocationOpportunity(
         key="btf",
-        label="French BTF",
+        label="French BTF Mar",
         candidate_builder=(
             build_btf_recommendation_candidate
+        ),
+    ),
+    AllocationOpportunity(
+        key="btf_aug_2027",
+        label="French BTF Aug",
+        candidate_builder=(
+            build_btf_2027_08_11_recommendation_candidate
         ),
     ),
     AllocationOpportunity(
@@ -157,7 +165,7 @@ report = build_treasury_decision_report(
     recommendation=recommendation,
     approval=approval,
     notes=(
-        "Initial V1 treasury decision report using "
+        "Expanded treasury decision report using "
         "real production universe assessments. "
         "Execution and operational implementation "
         "remain outside the current project scope."

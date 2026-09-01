@@ -240,22 +240,27 @@ def _french_btf_mar_2027() -> ResearchEvidenceState:
 def _french_btf_aug_2027() -> ResearchEvidenceState:
     return ResearchEvidenceState(
         opportunity_id="french_btf_aug_2027",
-        prior_analysis_status="partial",
+        prior_analysis_status="complete",
         identity_evidence_sufficient=True,
         corporate_access_evidence_sufficient=True,
         current_market_return_evidence_sufficient=True,
-        realistic_net_return_evidence_sufficient=False,
-        position_liquidity_evidence_sufficient=False,
+        realistic_net_return_evidence_sufficient=True,
+        position_liquidity_evidence_sufficient=True,
         execution_cost_evidence_sufficient=True,
-        risk_evidence_sufficient=False,
+        risk_evidence_sufficient=True,
         reusable_analysis_summary=(
-            "The existing French BTF corporate access route, OTC commission "
-            "model and sovereign-bill analytics can be reused."
+            "FR0129704187 is now recommendation-ready through the full "
+            "downstream analysis pipeline. The 31 August 2026 auction "
+            "yield, EUR 8.135 billion issue scale, French sovereign risk "
+            "evidence, IBKR OTC execution-cost model and position-size "
+            "liquidity analysis are integrated."
         ),
         evidence_notes=(
-            "Exact ISIN FR0129704187 and the 31 August 2026 weighted-average "
-            "auction yield of 2.860% are established.",
-            "Security-specific liquidity, refreshed sovereign risk evidence "
-            "and realistic net return remain incomplete.",
+            "At EUR 5 million the position represents approximately "
+            "0.0615% of issue outstanding and receives supported "
+            "position-aware liquidity status.",
+            "The existing V1 pipeline produces a defensible return of "
+            "approximately 2.760% at EUR 5 million with no recommendation "
+            "blockers or remaining evidence requirements.",
         ),
     )
