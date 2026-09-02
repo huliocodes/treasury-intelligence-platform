@@ -29,6 +29,7 @@ from treasury_intelligence.analytics.recommendation_candidates import (
     build_bubill_2027_08_18_recommendation_candidate,
     build_bubill_recommendation_candidate,
     build_ernx_recommendation_candidate,
+    build_franklin_euro_short_maturity_recommendation_candidate,
 )
 
 from treasury_intelligence.analytics.recommendations import (
@@ -54,6 +55,13 @@ ALLOCATION_OPPORTUNITIES = (
         label="ERNX",
         candidate_builder=(
             build_ernx_recommendation_candidate
+        ),
+    ),
+    AllocationOpportunity(
+        key="franklin_euro_short_maturity",
+        label="Franklin Euro Short Maturity",
+        candidate_builder=(
+            build_franklin_euro_short_maturity_recommendation_candidate
         ),
     ),
     AllocationOpportunity(

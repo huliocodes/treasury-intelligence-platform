@@ -21,6 +21,10 @@ from treasury_intelligence.analytics.execution_estimates import (
     SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS,
 )
 
+from treasury_intelligence.analytics.franklin_risk_assessments import (
+    get_franklin_risk_assessments,
+)
+
 from treasury_intelligence.analytics.generic_risk import (
     build_unknown_risk_assessments,
 )
@@ -109,6 +113,14 @@ from treasury_intelligence.sources.blackrock import (
     BLACKROCK_ICS_EURO_LIQUIDITY_CORE_T0_MARKET,
     BLACKROCK_ICS_EURO_LIQUIDITY_CORE_T0_MINIMUM_EUR,
     get_blackrock_ics_euro_liquidity_core_t0_snapshot,
+)
+
+from treasury_intelligence.sources.franklin import (
+    FRANKLIN_EURO_SHORT_MATURITY_ACCESSIBILITY,
+    FRANKLIN_EURO_SHORT_MATURITY_INSTRUMENT,
+    FRANKLIN_EURO_SHORT_MATURITY_MARKET,
+    get_franklin_euro_short_maturity_market_observation,
+    get_franklin_euro_short_maturity_snapshot,
 )
 
 from treasury_intelligence.sources.france import (
@@ -457,6 +469,113 @@ def build_ernx_universe_candidate(
         notes=(
             "Production universe candidate built for "
             "an arbitrary ERNX position size."
+        ),
+    )
+
+
+def build_franklin_euro_short_maturity_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    snapshot = (
+        get_franklin_euro_short_maturity_snapshot()
+    )
+
+    market_observation = (
+        get_franklin_euro_short_maturity_market_observation()
+    )
+
+    position_scale_eur = (
+        snapshot.share_class_aum_eur
+        or snapshot.fund_aum_eur
+    )
+
+    if position_scale_eur is None:
+        raise ValueError(
+            "Franklin Euro Short Maturity requires a fund "
+            "or share-class scale for position analysis."
+        )
+
+    position_scale_reference = (
+        "share_class_aum"
+        if snapshot.share_class_aum_eur is not None
+        else "fund_aum"
+    )
+
+    size_id = _position_size_id(
+        position_size_eur
+    )
+
+    return analyze_opportunity_position(
+        assessment_id=(
+            "franklin_euro_short_maturity_"
+            f"{size_id}_universe"
+        ),
+        label="Franklin Euro Short Maturity",
+        mandate=mandate,
+        instrument=(
+            FRANKLIN_EURO_SHORT_MATURITY_INSTRUMENT
+        ),
+        market=(
+            FRANKLIN_EURO_SHORT_MATURITY_MARKET
+        ),
+        accessibility=(
+            FRANKLIN_EURO_SHORT_MATURITY_ACCESSIBILITY
+        ),
+        snapshot=snapshot,
+        position_size_eur=position_size_eur,
+        holding_period_days=holding_period_days,
+        position_builder=lambda size: (
+            build_etf_position_analysis(
+                snapshot=snapshot,
+                position_size_eur=size,
+                position_scale_eur=(
+                    position_scale_eur
+                ),
+                position_scale_reference=(
+                    position_scale_reference
+                ),
+                market_observation=(
+                    market_observation
+                ),
+            )
+        ),
+        risk_assessments=(
+            get_franklin_risk_assessments()
+        ),
+        return_component_builder=lambda _size: (
+            build_ibkr_return_components(
+                instrument=(
+                    FRANKLIN_EURO_SHORT_MATURITY_INSTRUMENT
+                ),
+                market=(
+                    FRANKLIN_EURO_SHORT_MATURITY_MARKET
+                ),
+                snapshot=snapshot,
+                reference_yield_includes_product_fee=False,
+                access_cost_evidence=(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                ),
+                trading_cost_evidence=(
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
+                estimated_slippage_basis=(
+                    "Conservative V1 roundtrip ETF execution "
+                    "estimate. This economics assumption does "
+                    "not upgrade the separate position-size "
+                    "liquidity conclusion."
+                ),
+            )
+        ),
+        market_observation=market_observation,
+        notes=(
+            "Production universe candidate built for an "
+            "arbitrary Franklin Euro Short Maturity "
+            "position size."
         ),
     )
 
@@ -972,6 +1091,13 @@ def build_model_company_opportunity_universe(
             label="ERNX",
             candidate_builder=(
                 build_ernx_universe_candidate
+            ),
+        ),
+        UniverseOpportunity(
+            key="franklin_euro_short_maturity",
+            label="Franklin Euro Short Maturity",
+            candidate_builder=(
+                build_franklin_euro_short_maturity_universe_candidate
             ),
         ),
         UniverseOpportunity(

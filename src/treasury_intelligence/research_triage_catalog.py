@@ -133,22 +133,31 @@ def _ernx() -> ResearchEvidenceState:
 def _franklin_euro_short_maturity() -> ResearchEvidenceState:
     return ResearchEvidenceState(
         opportunity_id="franklin_euro_short_maturity",
-        prior_analysis_status="none",
+        prior_analysis_status="complete",
         identity_evidence_sufficient=True,
         corporate_access_evidence_sufficient=True,
         current_market_return_evidence_sufficient=True,
-        realistic_net_return_evidence_sufficient=False,
-        position_liquidity_evidence_sufficient=False,
-        execution_cost_evidence_sufficient=False,
-        risk_evidence_sufficient=False,
+        realistic_net_return_evidence_sufficient=True,
+        position_liquidity_evidence_sufficient=True,
+        execution_cost_evidence_sufficient=True,
+        risk_evidence_sufficient=True,
         reusable_analysis_summary=(
-            "Exact UCITS share class, Xetra listing, corporate access and "
-            "recent portfolio yield evidence are already available."
+            "Completed V1 Franklin analysis uses the generic ETF "
+            "position, liquidity, risk, eligibility and return pipeline. "
+            "The candidate is recommendation-ready through €2 million "
+            "and correctly requires stronger liquidity evidence at "
+            "€5 million."
         ),
         evidence_notes=(
-            "Recent discovery evidence showed approximately 2.70% YTM, "
-            "0.75-year duration and roughly €596 million fund scale.",
-            "Full position-size execution and risk analysis remain missing.",
+            "Franklin reported 2.78% portfolio YTM, 0.15% TER, "
+            "0.76-year duration, AA- average credit quality, "
+            "80 holdings and approximately €597.73 million AUM.",
+            "Modeled defensible return is 2.430% after product and "
+            "execution costs.",
+            "At €5 million the position is approximately 0.8365% of "
+            "fund scale, above the generic 0.50% strong-inference "
+            "threshold, so recommendation readiness correctly remains "
+            "position-size dependent.",
         ),
     )
 
