@@ -77,6 +77,10 @@ from treasury_intelligence.analytics.risk_assessments import (
     get_xeon_risk_assessments,
 )
 
+from treasury_intelligence.analytics.risk_sufficiency import (
+    assess_risk_evidence_sufficiency,
+)
+
 from treasury_intelligence.analytics.switching_friction import (
     build_switching_friction_assessment,
 )
@@ -184,6 +188,13 @@ def build_xeon_pipeline():
         )
     )
 
+    risk_sufficiency = (
+        assess_risk_evidence_sufficiency(
+            mandate=MODEL_COMPANY_MANDATE,
+            risk_assessments=base_risk,
+        )
+    )
+
     pre_fee_reference_yield_pct = (
         estr.rate_pct
         + snapshot.benchmark_spread_bps
@@ -263,6 +274,9 @@ def build_xeon_pipeline():
             position_risk_assessments=(
                 position_risk
             ),
+            risk_sufficiency=(
+                risk_sufficiency
+            ),
             economics=economics,
             return_analysis=(
                 return_analysis
@@ -284,6 +298,7 @@ def build_xeon_pipeline():
         eligibility,
         base_risk,
         position_risk,
+        risk_sufficiency,
         pre_fee_reference_yield_pct,
         return_analysis,
         economics,
@@ -371,6 +386,7 @@ def main() -> None:
         eligibility,
         base_risk,
         position_risk,
+        risk_sufficiency,
         pre_fee_reference_yield_pct,
         return_analysis,
         economics,
