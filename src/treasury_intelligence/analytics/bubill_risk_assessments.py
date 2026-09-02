@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from treasury_intelligence.analytics.bubill_risk_evidence import (
+    get_bubill_2027_08_18_recommendation_risk_observations,
     get_bubill_recommendation_risk_observations,
+)
+
+from treasury_intelligence.models.opportunities import (
+    Instrument,
+    Market,
 )
 
 from treasury_intelligence.models.risk import (
@@ -15,10 +23,12 @@ from treasury_intelligence.models.risk_assessments import (
 from treasury_intelligence.sources.germany import (
     BUBILL_2027_07_14,
     BUBILL_2027_07_14_MARKET,
+    BUBILL_2027_08_18,
+    BUBILL_2027_08_18_MARKET,
 )
 
 
-BUBILL_ASSESSED_AT = "2026-08-31"
+BUBILL_ASSESSED_AT = "2026-09-01"
 
 
 def _observation_ids(
@@ -33,24 +43,26 @@ def _observation_ids(
     )
 
 
-def get_bubill_risk_assessments(
+def _build_bubill_risk_assessments(
+    *,
+    instrument: Instrument,
+    market: Market,
+    observation_builder: Callable[
+        [],
+        tuple[RiskObservation, ...],
+    ],
+    assessment_id_prefix: str,
+    maturity_date_text: str,
 ) -> tuple[RiskAssessment, ...]:
-    observations = (
-        get_bubill_recommendation_risk_observations()
-    )
+    observations = observation_builder()
 
-    instrument_id = (
-        BUBILL_2027_07_14.instrument_id
-    )
-
-    market_id = (
-        BUBILL_2027_07_14_MARKET.market_id
-    )
+    instrument_id = instrument.instrument_id
+    market_id = market.market_id
 
     return (
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_"
+                f"{assessment_id_prefix}_"
                 "principal_credit"
             ),
             instrument_id=instrument_id,
@@ -89,16 +101,16 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_market"
+                f"{assessment_id_prefix}_market"
             ),
             instrument_id=instrument_id,
             market_id=market_id,
             risk_dimension="market",
             risk_level="low",
             rationale=(
-                "DE000BU0E436 is a short-dated "
+                f"{instrument.isin} is a short-dated "
                 "zero-coupon German Treasury discount "
-                "paper maturing on 14 July 2027. "
+                f"paper maturing on {maturity_date_text}. "
                 "Its secondary-market price can change "
                 "before maturity, but its short remaining "
                 "term limits interest-rate sensitivity "
@@ -116,7 +128,7 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_liquidity"
+                f"{assessment_id_prefix}_liquidity"
             ),
             instrument_id=instrument_id,
             market_id=market_id,
@@ -125,12 +137,10 @@ def get_bubill_risk_assessments(
             rationale=(
                 "Base liquidity remains intentionally "
                 "ungraded because liquidity is "
-                "position-size dependent. Existing "
-                "position analysis separately evaluates "
-                "the EUR 5.5 billion issue scale and "
-                "supports strong inferred immediate "
-                "liquidity for the current diagnostic "
-                "position sizes."
+                "position-size dependent. Position "
+                "analysis separately evaluates current "
+                "issue scale relative to the requested "
+                "allocation size."
             ),
             supporting_observation_ids=(),
             assessed_at=BUBILL_ASSESSED_AT,
@@ -144,7 +154,7 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_"
+                f"{assessment_id_prefix}_"
                 "currency_asset"
             ),
             instrument_id=instrument_id,
@@ -169,7 +179,7 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_"
+                f"{assessment_id_prefix}_"
                 "structural_counterparty"
             ),
             instrument_id=instrument_id,
@@ -210,7 +220,7 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_technical"
+                f"{assessment_id_prefix}_technical"
             ),
             instrument_id=instrument_id,
             market_id=market_id,
@@ -231,7 +241,7 @@ def get_bubill_risk_assessments(
         ),
         RiskAssessment(
             assessment_id=(
-                "de_bubill_2027_07_14_"
+                f"{assessment_id_prefix}_"
                 "operational_regulatory"
             ),
             instrument_id=instrument_id,
@@ -275,4 +285,34 @@ def get_bubill_risk_assessments(
                 "is discovered."
             ),
         ),
+    )
+
+
+def get_bubill_risk_assessments(
+) -> tuple[RiskAssessment, ...]:
+    return _build_bubill_risk_assessments(
+        instrument=BUBILL_2027_07_14,
+        market=BUBILL_2027_07_14_MARKET,
+        observation_builder=(
+            get_bubill_recommendation_risk_observations
+        ),
+        assessment_id_prefix=(
+            "de_bubill_2027_07_14"
+        ),
+        maturity_date_text="14 July 2027",
+    )
+
+
+def get_bubill_2027_08_18_risk_assessments(
+) -> tuple[RiskAssessment, ...]:
+    return _build_bubill_risk_assessments(
+        instrument=BUBILL_2027_08_18,
+        market=BUBILL_2027_08_18_MARKET,
+        observation_builder=(
+            get_bubill_2027_08_18_recommendation_risk_observations
+        ),
+        assessment_id_prefix=(
+            "de_bubill_2027_08_18"
+        ),
+        maturity_date_text="18 August 2027",
     )
