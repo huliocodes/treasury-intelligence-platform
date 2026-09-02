@@ -37,6 +37,14 @@ from treasury_intelligence.analytics.ibkr_returns import (
     build_ibkr_return_components,
 )
 
+from treasury_intelligence.analytics.local_broker_returns import (
+    build_local_broker_return_components,
+)
+
+from treasury_intelligence.analytics.icash_risk_assessments import (
+    get_icash_risk_assessments,
+)
+
 from treasury_intelligence.analytics.ishares_govt_0_1yr_risk_assessments import (
     get_ishares_govt_0_1yr_risk_assessments,
 )
@@ -160,6 +168,14 @@ from treasury_intelligence.sources.ibkr import (
 
 from treasury_intelligence.sources.ibkr_fixed_income import (
     IBKR_EUROPE_OTC_BOND_EVIDENCE,
+)
+
+from treasury_intelligence.sources.icash import (
+    ICASH_ACCESSIBILITY,
+    ICASH_INSTRUMENT,
+    ICASH_MARKET,
+    get_icash_market_observation,
+    get_icash_snapshot,
 )
 
 from treasury_intelligence.sources.ishares import (
@@ -588,6 +604,97 @@ def build_franklin_euro_short_maturity_universe_candidate(
             "Production universe candidate built for an "
             "arbitrary Franklin Euro Short Maturity "
             "position size."
+        ),
+    )
+
+
+def build_icash_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    snapshot = get_icash_snapshot(
+        estr_rate_pct=ESTR_RATE_PCT,
+        estr_reference_date=ESTR_REFERENCE_DATE,
+    )
+
+    market_observation = (
+        get_icash_market_observation()
+    )
+
+    position_scale_eur = (
+        snapshot.share_class_aum_eur
+        or snapshot.fund_aum_eur
+    )
+
+    if position_scale_eur is None:
+        raise ValueError(
+            "ICASH requires fund scale for "
+            "position analysis."
+        )
+
+    position_scale_reference = (
+        "share_class_aum"
+        if snapshot.share_class_aum_eur is not None
+        else "fund_aum"
+    )
+
+    size_id = _position_size_id(
+        position_size_eur
+    )
+
+    return analyze_opportunity_position(
+        assessment_id=(
+            f"icash_{size_id}_universe"
+        ),
+        label="ICASH",
+        mandate=mandate,
+        instrument=ICASH_INSTRUMENT,
+        market=ICASH_MARKET,
+        accessibility=ICASH_ACCESSIBILITY,
+        snapshot=snapshot,
+        position_size_eur=position_size_eur,
+        holding_period_days=holding_period_days,
+        position_builder=lambda size: (
+            build_etf_position_analysis(
+                snapshot=snapshot,
+                position_size_eur=size,
+                position_scale_eur=(
+                    position_scale_eur
+                ),
+                position_scale_reference=(
+                    position_scale_reference
+                ),
+                market_observation=(
+                    market_observation
+                ),
+                notes=(
+                    "ICASH liquidity is assessed "
+                    "conservatively using position size "
+                    "relative to current fund scale plus "
+                    "verified LJSE market structure. The "
+                    "existence of a market maker does not "
+                    "establish large executable depth."
+                ),
+            )
+        ),
+        risk_assessments=(
+            get_icash_risk_assessments()
+        ),
+        return_component_builder=lambda _size: (
+            build_local_broker_return_components(
+                instrument=ICASH_INSTRUMENT,
+                market=ICASH_MARKET,
+                snapshot=snapshot,
+                reference_yield_includes_product_fee=False,
+            )
+        ),
+        market_observation=market_observation,
+        notes=(
+            "Production universe candidate built for "
+            "an arbitrary ICASH position size. "
+            "Brokerage and execution economics remain "
+            "evidence-incomplete rather than assumed."
         ),
     )
 
@@ -1211,6 +1318,13 @@ def build_model_company_opportunity_universe(
             label="iShares € Govt Bond 0-1yr",
             candidate_builder=(
                 build_ishares_govt_0_1yr_universe_candidate
+            ),
+        ),
+        UniverseOpportunity(
+            key="icash",
+            label="ICASH",
+            candidate_builder=(
+                build_icash_universe_candidate
             ),
         ),
         UniverseOpportunity(

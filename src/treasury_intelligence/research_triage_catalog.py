@@ -93,21 +93,41 @@ def _slovenia_dz125() -> ResearchEvidenceState:
 def _icash() -> ResearchEvidenceState:
     return ResearchEvidenceState(
         opportunity_id="icash_ljse",
-        prior_analysis_status="none",
+        prior_analysis_status="partial",
         identity_evidence_sufficient=True,
         corporate_access_evidence_sufficient=True,
-        current_market_return_evidence_sufficient=False,
+        current_market_return_evidence_sufficient=True,
         realistic_net_return_evidence_sufficient=False,
         position_liquidity_evidence_sufficient=False,
         execution_cost_evidence_sufficient=False,
-        risk_evidence_sufficient=False,
+        risk_evidence_sufficient=True,
         reusable_analysis_summary=(
-            "Exact LJSE instrument identity and Slovenian corporate "
-            "brokerage access were verified in Milestone 13C.3."
+            "Substantial V1 ICASH analysis verifies the exact LJSE "
+            "instrument, Slovenian corporate brokerage route, current "
+            "fund structure, benchmark-linked return basis, product "
+            "costs, fund scale and seven-dimension risk evidence. "
+            "Execution economics and larger-position liquidity remain "
+            "evidence-incomplete."
         ),
         evidence_notes=(
-            "Current fund yield, fees, fund scale, trading liquidity and "
-            "€5 million position capacity still require research.",
+            "ICASH is modeled from current EUR short-term rate evidence "
+            "with a zero assumed benchmark spread and a separately "
+            "deducted 0.30% annual product cost.",
+            "The current modeled return after known product costs is "
+            "approximately 1.888%, but realistic net return remains "
+            "incomplete because recurring brokerage, entry and exit "
+            "commission, and spread/slippage costs are not yet "
+            "sufficiently evidenced.",
+            "Fund scale is approximately EUR 36.52 million. The generic "
+            "0.50% ETF strong-inference threshold therefore supports "
+            "the EUR 100k position but not EUR 500k through EUR 5m.",
+            "Published LJSE market-maker obligations confirm market "
+            "infrastructure but do not establish large treasury-size "
+            "executable depth.",
+            "The unresolved evidence is retained intentionally because "
+            "ICASH is already economically dominated by higher-return "
+            "recommendation-ready alternatives under the current "
+            "mandate.",
         ),
     )
 
