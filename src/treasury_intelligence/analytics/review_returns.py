@@ -8,6 +8,10 @@ from treasury_intelligence.models.economics import (
     EconomicsEvidenceAssessment,
 )
 
+from treasury_intelligence.models.portfolio import (
+    PortfolioCandidateAssessment,
+)
+
 from treasury_intelligence.models.returns import (
     ReturnAnalysis,
 )
@@ -115,4 +119,46 @@ def build_allocation_return_input(
         evidence_available=evidence_available,
         source_reference=source_reference,
         notes=notes,
+    )
+
+
+def build_candidate_allocation_return_input(
+    candidate: PortfolioCandidateAssessment,
+    notes: str | None = None,
+) -> AllocationReturnInput:
+    evidence_available = (
+        candidate.recommendation_ready
+        and candidate.candidate_status
+        == "recommendation_ready"
+        and candidate.economics_status
+        == "complete"
+        and candidate.defensible_return_pct
+        is not None
+    )
+
+    if evidence_available:
+        annual_return_pct = (
+            candidate.defensible_return_pct
+        )
+    else:
+        annual_return_pct = None
+
+    return AllocationReturnInput(
+        instrument_id=candidate.instrument_id,
+        market_id=candidate.market_id,
+        access_route_id=candidate.access_route_id,
+        label=candidate.label,
+        annual_return_pct=annual_return_pct,
+        evidence_available=evidence_available,
+        source_reference=(
+            candidate.assessment_id
+        ),
+        notes=(
+            notes
+            or (
+                "Review-return input derived from the "
+                "production portfolio candidate's "
+                "defensible return assessment."
+            )
+        ),
     )

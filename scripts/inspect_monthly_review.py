@@ -12,6 +12,14 @@ from treasury_intelligence.analytics.allocation_deltas import (
     build_treasury_allocation_delta,
 )
 
+from treasury_intelligence.analytics.allocation_opportunities import (
+    ALLOCATION_OPPORTUNITIES,
+)
+
+from treasury_intelligence.analytics.allocation_selection import (
+    build_return_priority_portfolio_construction,
+)
+
 from treasury_intelligence.analytics.cash_returns import (
     build_cash_baseline_return_assessment,
     build_unallocated_return_input,
@@ -21,48 +29,16 @@ from treasury_intelligence.analytics.economic_comparisons import (
     build_treasury_economic_comparison,
 )
 
-from treasury_intelligence.analytics.economics import (
-    build_economics_evidence_assessment,
-)
-
-from treasury_intelligence.analytics.eligibility import (
-    evaluate_eligibility,
-)
-
-from treasury_intelligence.analytics.frictions import (
-    build_xeon_return_components,
-)
-
-from treasury_intelligence.analytics.liquidity import (
-    assess_liquidity_evidence,
+from treasury_intelligence.analytics.mandate_surveillance import (
+    build_treasury_mandate_surveillance,
 )
 
 from treasury_intelligence.analytics.monthly_reviews import (
     build_monthly_review_report,
 )
 
-from treasury_intelligence.analytics.mandate_surveillance import (
-    build_treasury_mandate_surveillance,
-)
-
-from treasury_intelligence.analytics.portfolio import (
-    build_integrated_portfolio_candidate,
-)
-
-from treasury_intelligence.analytics.portfolio_construction import (
-    build_portfolio_construction,
-)
-
 from treasury_intelligence.analytics.portfolio_proposals import (
     build_portfolio_proposal,
-)
-
-from treasury_intelligence.analytics.position_risk import (
-    build_position_risk_assessments,
-)
-
-from treasury_intelligence.analytics.positions import (
-    build_xeon_position_analysis,
 )
 
 from treasury_intelligence.analytics.rebalance import (
@@ -70,19 +46,7 @@ from treasury_intelligence.analytics.rebalance import (
 )
 
 from treasury_intelligence.analytics.review_returns import (
-    build_allocation_return_input,
-)
-
-from treasury_intelligence.analytics.returns import (
-    build_return_analysis,
-)
-
-from treasury_intelligence.analytics.risk_assessments import (
-    get_xeon_risk_assessments,
-)
-
-from treasury_intelligence.analytics.risk_sufficiency import (
-    assess_risk_evidence_sufficiency,
+    build_candidate_allocation_return_input,
 )
 
 from treasury_intelligence.analytics.switching_friction import (
@@ -91,6 +55,10 @@ from treasury_intelligence.analytics.switching_friction import (
 
 from treasury_intelligence.analytics.treasury_state import (
     build_treasury_state,
+)
+
+from treasury_intelligence.analytics.universe_candidates import (
+    analyze_opportunity_universe_at_position_size,
 )
 
 from treasury_intelligence.mandates.model_company import (
@@ -102,213 +70,18 @@ from treasury_intelligence.models.cash_baselines import (
     CashBaseline,
 )
 
+from treasury_intelligence.models.economic_comparisons import (
+    UnallocatedReturnInput,
+)
+
 from treasury_intelligence.models.rebalance import (
     RebalancePolicy,
 )
 
-from treasury_intelligence.sources.ecb import (
-    fetch_recent_estr,
-)
 
-from treasury_intelligence.sources.xtrackers import (
-    XEON_ACCESSIBILITY,
-    XEON_IBKR_ACCESS,
-    XEON_INSTRUMENT,
-    XEON_MARKET,
-    build_xeon_snapshot,
-    get_xeon_market_observation,
-)
-
-
-POSITION_SIZE_EUR = 500_000
-
-HOLDING_PERIOD_DAYS = 365
+AS_OF = "2026-09-03"
 
 REBALANCE_THRESHOLD_BPS = 5.0
-
-AS_OF = "2026-08-30"
-
-
-def build_xeon_pipeline():
-    estr = fetch_recent_estr(
-        limit=1
-    )[-1]
-
-    snapshot = build_xeon_snapshot(
-        estr_rate_pct=estr.rate_pct,
-        estr_reference_date=(
-            estr.reference_date
-        ),
-    )
-
-    market_observation = (
-        get_xeon_market_observation()
-    )
-
-    position = (
-        build_xeon_position_analysis(
-            snapshot=snapshot,
-            position_size_eur=(
-                POSITION_SIZE_EUR
-            ),
-            market_observation=(
-                market_observation
-            ),
-        )
-    )
-
-    liquidity = (
-        assess_liquidity_evidence(
-            market_observation=(
-                market_observation
-            ),
-            position=position,
-        )
-    )
-
-    eligibility = (
-        evaluate_eligibility(
-            mandate=MODEL_COMPANY_MANDATE,
-            instrument=XEON_INSTRUMENT,
-            market=XEON_MARKET,
-            accessibility=(
-                XEON_ACCESSIBILITY
-            ),
-            position=position,
-        )
-    )
-
-    base_risk = (
-        get_xeon_risk_assessments()
-    )
-
-    position_risk = (
-        build_position_risk_assessments(
-            risk_assessments=base_risk,
-            position=position,
-            liquidity_assessment=(
-                liquidity
-            ),
-        )
-    )
-
-    risk_sufficiency = (
-        assess_risk_evidence_sufficiency(
-            mandate=MODEL_COMPANY_MANDATE,
-            risk_assessments=base_risk,
-        )
-    )
-
-    pre_fee_reference_yield_pct = (
-        estr.rate_pct
-        + snapshot.benchmark_spread_bps
-        / 100
-    )
-
-    return_analysis = (
-        build_return_analysis(
-            analysis_id=(
-                "monthly_review_xeon_"
-                "500k_365d_return"
-            ),
-            instrument_id=(
-                XEON_INSTRUMENT.instrument_id
-            ),
-            market_id=(
-                XEON_MARKET.market_id
-            ),
-            access_route_id=(
-                XEON_IBKR_ACCESS.access_route_id
-            ),
-            position_size_eur=(
-                POSITION_SIZE_EUR
-            ),
-            holding_period_days=(
-                HOLDING_PERIOD_DAYS
-            ),
-            components=(
-                build_xeon_return_components(
-                    position_size_eur=(
-                        POSITION_SIZE_EUR
-                    ),
-                    reference_yield_pct=(
-                        pre_fee_reference_yield_pct
-                    ),
-                )
-            ),
-            notes=(
-                "Monthly-review XEON economics use "
-                "the pre-fund-fee benchmark-linked "
-                "reference yield. The fund fee is "
-                "modeled separately by the friction "
-                "component layer."
-            ),
-        )
-    )
-
-    economics = (
-        build_economics_evidence_assessment(
-            return_analysis
-        )
-    )
-
-    review_return = (
-        build_allocation_return_input(
-            label="XEON",
-            return_analysis=(
-                return_analysis
-            ),
-            economics=economics,
-            notes=(
-                "Review-return input derived from "
-                "the XEON economics analysis."
-            ),
-        )
-    )
-
-    candidate = (
-        build_integrated_portfolio_candidate(
-            assessment_id=(
-                "monthly_review_xeon_"
-                "500k_candidate"
-            ),
-            label="XEON",
-            eligibility=eligibility,
-            risk_assessments=base_risk,
-            position_risk_assessments=(
-                position_risk
-            ),
-            risk_sufficiency=(
-                risk_sufficiency
-            ),
-            economics=economics,
-            return_analysis=(
-                return_analysis
-            ),
-            notes=(
-                "XEON candidate derived through "
-                "the integrated monthly-review "
-                "pipeline."
-            ),
-        )
-    )
-
-    return (
-        estr,
-        snapshot,
-        market_observation,
-        position,
-        liquidity,
-        eligibility,
-        base_risk,
-        position_risk,
-        risk_sufficiency,
-        pre_fee_reference_yield_pct,
-        return_analysis,
-        economics,
-        review_return,
-        candidate,
-    )
 
 
 def build_model_company_cash_baseline(
@@ -318,7 +91,7 @@ def build_model_company_cash_baseline(
         return CashBaseline(
             baseline_id=(
                 "model_company_cash_baseline_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             mandate_id=(
                 MODEL_COMPANY_MANDATE.mandate_id
@@ -355,7 +128,7 @@ def build_model_company_cash_baseline(
     return CashBaseline(
         baseline_id=(
             "model_company_cash_baseline_"
-            "2026_08_30"
+            "2026_09_03"
         ),
         mandate_id=(
             MODEL_COMPANY_MANDATE.mandate_id
@@ -376,49 +149,35 @@ def build_model_company_cash_baseline(
 
 def main() -> None:
     print(
-        "REAL INTEGRATED MONTHLY TREASURY REVIEW"
+        "FULL-UNIVERSE MONTHLY TREASURY REVIEW"
     )
-
     print()
 
-    (
-        estr,
-        snapshot,
-        market_observation,
-        position,
-        liquidity,
-        eligibility,
-        base_risk,
-        position_risk,
-        risk_sufficiency,
-        pre_fee_reference_yield_pct,
-        return_analysis,
-        economics,
-        review_return,
-        candidate,
-    ) = build_xeon_pipeline()
-
-    candidates = (
-        candidate,
+    treasury_capital_eur = (
+        MODEL_COMPANY_MANDATE.treasury_capital_eur
     )
 
-    construction = (
-        build_portfolio_construction(
+    universe_candidates = (
+        analyze_opportunity_universe_at_position_size(
+            position_size_eur=(
+                treasury_capital_eur
+            ),
+            mandate=MODEL_COMPANY_MANDATE,
+        )
+    )
+
+    construction, selected_candidates = (
+        build_return_priority_portfolio_construction(
             construction_id=(
                 "monthly_review_construction_"
-                "2026_08_30"
+                "2026_09_03"
             ),
-            mandate=(
-                MODEL_COMPANY_MANDATE
-            ),
-            candidates=candidates,
-            instructions=(),
+            mandate=MODEL_COMPANY_MANDATE,
+            opportunities=ALLOCATION_OPPORTUNITIES,
             notes=(
-                "Portfolio construction consumes "
-                "the integrated XEON candidate. "
-                "No allocation instruction is "
-                "issued because the candidate is "
-                "not recommendation-ready."
+                "Monthly review uses the production "
+                "return-priority allocation opportunity "
+                "registry."
             ),
         )
     )
@@ -427,14 +186,14 @@ def main() -> None:
         build_portfolio_proposal(
             proposal_id=(
                 "monthly_review_proposal_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             construction=construction,
-            candidates=candidates,
+            candidates=selected_candidates,
             notes=(
-                "Monthly-review proposal derived "
-                "from integrated analytical "
-                "pipeline objects."
+                "Monthly-review proposal generated "
+                "from the production allocation "
+                "opportunity set."
             ),
         )
     )
@@ -443,16 +202,15 @@ def main() -> None:
         build_treasury_state(
             state_id=(
                 "monthly_review_state_"
-                "2026_08_30"
+                "2026_09_03"
             ),
-            mandate=(
-                MODEL_COMPANY_MANDATE
-            ),
+            mandate=MODEL_COMPANY_MANDATE,
             as_of=AS_OF,
             positions=(),
             notes=(
                 "Model company currently modeled "
-                "as fully unallocated."
+                "as fully unallocated pending a real "
+                "current-cash baseline."
             ),
         )
     )
@@ -461,14 +219,14 @@ def main() -> None:
         build_treasury_allocation_delta(
             delta_id=(
                 "monthly_review_delta_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             state=state,
             proposal=proposal,
             notes=(
-                "Allocation delta derived from "
-                "current treasury state and the "
-                "current portfolio proposal."
+                "Allocation delta compares the current "
+                "treasury state with the production "
+                "portfolio proposal."
             ),
         )
     )
@@ -485,7 +243,7 @@ def main() -> None:
         build_cash_baseline_return_assessment(
             assessment_id=(
                 "model_company_cash_return_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             baseline=cash_baseline,
             notes=(
@@ -498,55 +256,50 @@ def main() -> None:
 
     current_unallocated_return = (
         build_unallocated_return_input(
-            assessment=(
-                cash_return_assessment
-            ),
+            assessment=cash_return_assessment,
             notes=(
                 "Current unallocated treasury return "
-                "derived from the current cash-baseline "
-                "return assessment."
+                "derived from the unresolved current "
+                "cash baseline."
             ),
         )
     )
-
-    if (
-        proposal.unallocated_capital_eur
-        != state.unallocated_capital_eur
-    ):
-        raise ValueError(
-            "The current 8A.3 integration can reuse "
-            "the current cash-baseline return for the "
-            "proposed unallocated balance only when "
-            "the proposal leaves unallocated capital "
-            "unchanged."
-        )
 
     proposed_unallocated_return = (
-        build_unallocated_return_input(
-            assessment=(
-                cash_return_assessment
+        UnallocatedReturnInput(
+            annual_return_pct=None,
+            evidence_available=False,
+            source_reference=(
+                "monthly_review_proposed_unallocated_"
+                "2026_09_03"
             ),
             notes=(
-                "Proposed unallocated treasury return "
-                "uses the same cash-baseline assessment "
-                "because the current proposal leaves "
-                "unallocated capital unchanged."
+                "No proposed unallocated-return "
+                "assumption is required when the "
+                "production proposal allocates all "
+                "treasury capital. If proposed "
+                "unallocated capital becomes positive, "
+                "its return evidence must be supplied."
             ),
         )
     )
 
-    proposed_position_returns = ()
-
-    if proposal.allocation_lines:
-        proposed_position_returns = (
-            review_return,
+    proposed_position_returns = tuple(
+        build_candidate_allocation_return_input(
+            candidate=candidate,
+            notes=(
+                "Production candidate return used "
+                "for recurring treasury review."
+            ),
         )
+        for candidate in selected_candidates
+    )
 
     comparison = (
         build_treasury_economic_comparison(
             comparison_id=(
                 "monthly_review_economics_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             state=state,
             proposal=proposal,
@@ -562,10 +315,11 @@ def main() -> None:
                 proposed_unallocated_return
             ),
             notes=(
-                "Economic comparison consumes "
-                "derived position-return evidence "
-                "and cash-baseline return evidence. "
-                "Unknown economics remain explicit."
+                "Recurring economic comparison between "
+                "the current treasury state and the "
+                "current production portfolio proposal. "
+                "Unknown current cash economics remain "
+                "explicit."
             ),
         )
     )
@@ -574,17 +328,16 @@ def main() -> None:
         build_switching_friction_assessment(
             assessment_id=(
                 "monthly_review_switching_"
-                "friction_2026_08_30"
+                "friction_2026_09_03"
             ),
             delta=delta,
-            economic_comparison=(
-                comparison
-            ),
+            economic_comparison=comparison,
             friction_inputs=(),
             notes=(
-                "No switching-friction input is "
-                "required when no allocation "
-                "movement is proposed."
+                "No switching-friction assumptions are "
+                "invented. Required evidence remains "
+                "explicit when capital movement is "
+                "proposed."
             ),
         )
     )
@@ -597,9 +350,9 @@ def main() -> None:
             REBALANCE_THRESHOLD_BPS
         ),
         notes=(
-            "Five-basis-point threshold remains "
-            "a deterministic validation policy, "
-            "not a production treasury policy."
+            "Five-basis-point threshold remains a "
+            "deterministic validation fixture, not "
+            "a production treasury policy."
         ),
     )
 
@@ -607,20 +360,17 @@ def main() -> None:
         build_rebalance_decision(
             decision_id=(
                 "monthly_review_decision_"
-                "2026_08_30"
+                "2026_09_03"
             ),
             policy=policy,
             delta=delta,
-            economic_comparison=(
-                comparison
-            ),
+            economic_comparison=comparison,
             switching_friction=(
                 switching_friction
             ),
             notes=(
-                "Rebalance decision derived from "
-                "the integrated monthly-review "
-                "pipeline."
+                "Rebalance decision derived from the "
+                "production recurring-review pipeline."
             ),
         )
     )
@@ -629,15 +379,16 @@ def main() -> None:
         build_treasury_mandate_surveillance(
             surveillance_id=(
                 "monthly_review_mandate_"
-                "surveillance_2026_08_30"
+                "surveillance_2026_09_03"
             ),
             state=state,
             holding_assessments=(),
             notes=(
                 "The current modeled treasury state "
                 "contains no invested positions. "
-                "Therefore there are no current holdings "
-                "to assess for mandate deterioration."
+                "Therefore there are no current "
+                "holdings to assess for mandate "
+                "deterioration."
             ),
         )
     )
@@ -645,209 +396,72 @@ def main() -> None:
     review = (
         build_monthly_review_report(
             review_id=(
-                "monthly_review_2026_08_30"
+                "monthly_review_2026_09_03"
             ),
             state=state,
             proposal=proposal,
             delta=delta,
-            economic_comparison=(
-                comparison
-            ),
+            economic_comparison=comparison,
             switching_friction=(
                 switching_friction
             ),
-            rebalance_decision=(
-                decision
-            ),
+            rebalance_decision=decision,
             mandate_surveillance=(
                 mandate_surveillance
             ),
             notes=(
-                "7D/8A integrated monthly-review "
-                "pipeline."
+                "Milestone 15B full-universe recurring "
+                "treasury review."
             ),
         )
     )
 
-    liquidity_risk = next(
-        assessment
-        for assessment in position_risk
-        if (
-            assessment.risk_dimension
-            == "liquidity"
-        )
+    recommendation_ready_count = sum(
+        1
+        for candidate in universe_candidates
+        if candidate.recommendation_ready
     )
 
-    print("SOURCE / MARKET")
+    needs_evidence_count = sum(
+        1
+        for candidate in universe_candidates
+        if candidate.candidate_status
+        == "needs_evidence"
+    )
+
+    blocked_count = sum(
+        1
+        for candidate in universe_candidates
+        if candidate.candidate_status
+        == "blocked"
+    )
+
+    print("PRODUCTION UNIVERSE")
     print()
 
     print(
-        f"€STR reference date:           "
-        f"{estr.reference_date}"
+        f"Opportunities:                 "
+        f"{len(universe_candidates)}"
     )
 
     print(
-        f"€STR rate:                     "
-        f"{estr.rate_pct:.3f}%"
+        f"Recommendation-ready:          "
+        f"{recommendation_ready_count}"
     )
 
     print(
-        f"XEON pre-fee reference yield:  "
-        f"{pre_fee_reference_yield_pct:.3f}%"
+        f"Needs evidence:                "
+        f"{needs_evidence_count}"
     )
 
     print(
-        f"XEON snapshot yield:           "
-        f"{snapshot.yield_value_pct:.3f}%"
-    )
-
-    print(
-        f"XEON annual fund fee:          "
-        f"{snapshot.annual_fee_pct:.3f}%"
-    )
-
-    print(
-        f"Observed daily turnover:       "
-        f"EUR "
-        f"{market_observation.daily_turnover_eur:,.0f}"
+        f"Blocked:                       "
+        f"{blocked_count}"
     )
 
     print()
-
-    print("UPSTREAM ANALYTICS")
+    print("PRODUCTION PORTFOLIO PROPOSAL")
     print()
-
-    print(
-        f"Position size:                 "
-        f"EUR {position.position_size_eur:,.0f}"
-    )
-
-    print(
-        f"Liquidity evidence:            "
-        f"{liquidity.evidence_level}"
-    )
-
-    print(
-        f"Immediate liquidity:           "
-        f"{liquidity.immediate_liquidity_supported}"
-    )
-
-    print(
-        f"Eligibility:                   "
-        f"{eligibility.overall_status}"
-    )
-
-    print(
-        f"Base-risk dimensions:          "
-        f"{len(base_risk)}"
-    )
-
-    print(
-        f"Position liquidity risk:       "
-        f"{liquidity_risk.position_risk_status}"
-    )
-
-    print(
-        f"Economics status:              "
-        f"{economics.economics_status}"
-    )
-
-    print(
-        f"Economics blocking gaps:       "
-        f"{economics.blocking_gap_count}"
-    )
-
-    print(
-        f"Return after known costs:      "
-        f"{return_analysis.return_after_known_costs_pct:.3f}%"
-    )
-
-    if (
-        return_analysis.realistic_expected_return_pct
-        is None
-    ):
-        realistic_return_text = "UNKNOWN"
-    else:
-        realistic_return_text = (
-            f"{return_analysis.realistic_expected_return_pct:.3f}%"
-        )
-
-    print(
-        f"Realistic expected return:     "
-        f"{realistic_return_text}"
-    )
-
-    if review_return.annual_return_pct is None:
-        review_return_text = "UNKNOWN"
-    else:
-        review_return_text = (
-            f"{review_return.annual_return_pct:.3f}%"
-        )
-
-    print(
-        f"Review return input:           "
-        f"{review_return_text}"
-    )
-
-    print()
-
-    print("CURRENT CASH BASELINE")
-    print()
-
-    print(
-        f"Baseline total cash:           "
-        f"EUR {cash_baseline.total_cash_eur:,.0f}"
-    )
-
-    print(
-        f"Cash balance count:            "
-        f"{len(cash_baseline.balances)}"
-    )
-
-    print(
-        f"Return evidence coverage:      "
-        f"{cash_return_assessment.return_evidence_coverage_pct:.2f}%"
-    )
-
-    print(
-        f"Cash economics status:         "
-        f"{cash_return_assessment.assessment_status}"
-    )
-
-    if (
-        cash_return_assessment.blended_annual_return_pct
-        is None
-    ):
-        cash_return_text = "UNKNOWN"
-    else:
-        cash_return_text = (
-            f"{cash_return_assessment.blended_annual_return_pct:.3f}%"
-        )
-
-    print(
-        f"Blended cash return:           "
-        f"{cash_return_text}"
-    )
-
-    print(
-        f"Review cash evidence:          "
-        f"{current_unallocated_return.evidence_available}"
-    )
-
-    print()
-
-    print("PORTFOLIO")
-    print()
-
-    print(
-        f"Candidate status:              "
-        f"{candidate.candidate_status}"
-    )
-
-    print(
-        f"Recommendation ready:          "
-        f"{candidate.recommendation_ready}"
-    )
 
     print(
         f"Construction status:           "
@@ -864,55 +478,125 @@ def main() -> None:
         f"{proposal.decision}"
     )
 
-    print()
+    print(
+        f"Selected positions:            "
+        f"{len(selected_candidates)}"
+    )
 
-    print("REVIEW / REBALANCE")
+    for candidate in selected_candidates:
+        if candidate.defensible_return_pct is None:
+            return_text = "UNKNOWN"
+        else:
+            return_text = (
+                f"{candidate.defensible_return_pct:.3f}%"
+            )
+
+        print(
+            f"  - {candidate.label}: "
+            f"EUR {candidate.position_size_eur:,.0f} "
+            f"at {return_text}"
+        )
+
+    print()
+    print("CURRENT TREASURY STATE")
     print()
 
     print(
         f"Treasury capital:              "
-        f"EUR {review.treasury_capital_eur:,.0f}"
+        f"EUR {state.treasury_capital_eur:,.0f}"
     )
 
     print(
         f"Current invested:              "
-        f"EUR "
-        f"{review.current_invested_capital_eur:,.0f}"
+        f"EUR {state.invested_capital_eur:,.0f}"
     )
 
     print(
         f"Current unallocated:           "
-        f"EUR "
-        f"{review.current_unallocated_capital_eur:,.0f}"
+        f"EUR {state.unallocated_capital_eur:,.0f}"
     )
 
     print(
+        f"Current cash evidence:         "
+        f"{cash_return_assessment.assessment_status}"
+    )
+
+    if (
+        cash_return_assessment
+        .blended_annual_return_pct
+        is None
+    ):
+        cash_return_text = "UNKNOWN"
+    else:
+        cash_return_text = (
+            f"{cash_return_assessment.blended_annual_return_pct:.3f}%"
+        )
+
+    print(
+        f"Current cash return:           "
+        f"{cash_return_text}"
+    )
+
+    print()
+    print("ALLOCATION DELTA")
+    print()
+
+    print(
         f"Proposed allocated:            "
-        f"EUR "
-        f"{review.proposed_allocated_capital_eur:,.0f}"
+        f"EUR {proposal.allocated_capital_eur:,.0f}"
     )
 
     print(
         f"Proposed unallocated:          "
-        f"EUR "
-        f"{review.proposed_unallocated_capital_eur:,.0f}"
+        f"EUR {proposal.unallocated_capital_eur:,.0f}"
     )
 
     print(
         f"Gross position movement:       "
-        f"EUR "
-        f"{review.gross_position_movement_eur:,.0f}"
+        f"EUR {delta.gross_position_movement_eur:,.0f}"
     )
+
+    print()
+    print("ECONOMIC REVIEW")
+    print()
 
     print(
         f"Economic comparison:           "
         f"{comparison.comparison_status}"
     )
 
+    if comparison.current_annual_return_eur is None:
+        current_return_text = "UNKNOWN"
+    else:
+        current_return_text = (
+            f"EUR {comparison.current_annual_return_eur:,.0f}"
+        )
+
+    if comparison.proposed_annual_return_eur is None:
+        proposed_return_text = "UNKNOWN"
+    else:
+        proposed_return_text = (
+            f"EUR {comparison.proposed_annual_return_eur:,.0f}"
+        )
+
+    print(
+        f"Current annual return:         "
+        f"{current_return_text}"
+    )
+
+    print(
+        f"Proposed annual return:        "
+        f"{proposed_return_text}"
+    )
+
     print(
         f"Switching friction:            "
         f"{switching_friction.friction_status}"
     )
+
+    print()
+    print("MONTHLY REVIEW")
+    print()
 
     print(
         f"Mandate surveillance:          "
@@ -940,53 +624,27 @@ def main() -> None:
     )
 
     print()
-
     print("SUMMARY")
     print()
+    print(review.summary)
 
-    print(
-        review.summary
-    )
-
-    if (
-        review.evidence_blocked_candidate_labels
-    ):
+    if comparison.missing_evidence:
         print()
-        print(
-            "EVIDENCE-BLOCKED CANDIDATES"
-        )
+        print("ECONOMIC EVIDENCE REQUIREMENTS")
         print()
 
-        for label in (
-            review.evidence_blocked_candidate_labels
-        ):
-            print(
-                f"  - {label}"
-            )
-
-    if cash_return_assessment.evidence_requirements:
-        print()
-        print(
-            "CASH BASELINE EVIDENCE REQUIREMENTS"
-        )
-        print()
-
-        for requirement in (
-            cash_return_assessment.evidence_requirements
-        ):
+        for requirement in comparison.missing_evidence:
             print(
                 f"  - {requirement}"
             )
 
-    if review.evidence_requirements:
+    if switching_friction.missing_evidence:
         print()
-        print(
-            "REVIEW EVIDENCE REQUIREMENTS"
-        )
+        print("SWITCHING EVIDENCE REQUIREMENTS")
         print()
 
         for requirement in (
-            review.evidence_requirements
+            switching_friction.missing_evidence
         ):
             print(
                 f"  - {requirement}"
@@ -995,59 +653,126 @@ def main() -> None:
     print()
     print("-" * 100)
     print()
-
-    print("PIPELINE CHECK")
+    print("MILESTONE 15B ASSERTIONS")
     print()
 
+    assert len(universe_candidates) == 14
+
+    assert recommendation_ready_count > 0
+
+    assert construction.construction_status == (
+        "valid_allocation"
+    )
+
+    assert proposal.proposal_status == (
+        "allocation_proposed"
+    )
+
+    assert proposal.allocated_capital_eur > 0
+
+    assert selected_candidates
+
+    assert all(
+        candidate.recommendation_ready
+        for candidate in selected_candidates
+    )
+
+    assert all(
+        return_input.evidence_available
+        for return_input in proposed_position_returns
+    )
+
+    assert state.invested_capital_eur == 0
+
+    assert (
+        state.unallocated_capital_eur
+        == treasury_capital_eur
+    )
+
+    assert delta.change_required
+
+    assert delta.gross_position_movement_eur > 0
+
+    assert (
+        cash_return_assessment.assessment_status
+        == "incomplete"
+    )
+
+    assert (
+        current_unallocated_return
+        .evidence_available
+        is False
+    )
+
+    assert comparison.comparison_status == (
+        "incomplete"
+    )
+
+    assert comparison.current_annual_return_eur is None
+
+    assert comparison.proposed_annual_return_eur is not None
+
+    assert (
+        mandate_surveillance.status
+        == "compliant"
+    )
+
+    assert decision.decision == "needs_review"
+
+    assert (
+        decision.decision_status
+        == "review_required"
+    )
+
+    assert review.review_action == (
+        "evidence_required"
+    )
+
+    assert review.review_status == (
+        "follow_up_required"
+    )
+
     print(
-        "The monthly review above was not "
-        "constructed by manually instantiating "
-        "PortfolioProposal, TreasuryAllocationDelta, "
-        "TreasuryEconomicComparison, "
-        "SwitchingFrictionAssessment, or "
-        "RebalanceDecision."
+        "Production universe connected:         yes"
+    )
+
+    print(
+        "Production portfolio proposal created: yes"
+    )
+
+    print(
+        "Current treasury state connected:      yes"
+    )
+
+    print(
+        "Allocation delta connected:            yes"
+    )
+
+    print(
+        "Production returns connected:          yes"
+    )
+
+    print(
+        "Unknown cash economics preserved:      yes"
+    )
+
+    print(
+        "Mandate surveillance connected:        yes"
+    )
+
+    print(
+        "Rebalance decision connected:          yes"
+    )
+
+    print(
+        "Monthly review connected:              yes"
     )
 
     print()
 
     print(
-        "Those objects were produced by the existing "
-        "analytics functions."
-    )
-
-    print()
-
-    print(
-        "XEON return evidence crosses into the "
-        "review layer through the validated "
-        "economics-to-review-return adapter."
-    )
-
-    print()
-
-    print(
-        "The XEON return model uses the pre-fund-fee "
-        "benchmark-linked reference yield. The fund "
-        "fee and execution costs are then applied "
-        "exactly once by the return-component model."
-    )
-
-    print()
-
-    print(
-        "Current corporate cash return evidence now "
-        "crosses into the review layer through "
-        "CashBaseline, CashBaselineReturnAssessment, "
-        "and build_unallocated_return_input."
-    )
-
-    print()
-
-    print(
-        "The model-company cash composition is not "
-        "invented. Until account-level balance and "
-        "return evidence exists, the full unallocated "
-        "balance remains explicitly unresolved."
+        "All Milestone 15B full-universe "
+        "recurring-review assertions passed."
     )
 
 
