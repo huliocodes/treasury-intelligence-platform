@@ -8,6 +8,13 @@ MONTHLY_REVIEW_STATUSES = (
     "follow_up_required",
 )
 
+MONTHLY_REVIEW_ACTIONS = (
+    "hold",
+    "hold_switch_not_economic",
+    "evidence_required",
+    "review_for_rebalance",
+)
+
 
 @dataclass(frozen=True)
 class MonthlyReviewReport:
@@ -20,6 +27,7 @@ class MonthlyReviewReport:
     economic_comparison_id: str
     switching_friction_assessment_id: str
     rebalance_decision_id: str
+    mandate_surveillance_id: str
 
     as_of: str
     treasury_capital_eur: float
@@ -32,8 +40,12 @@ class MonthlyReviewReport:
 
     gross_position_movement_eur: float
 
+    mandate_surveillance_status: str
+
     rebalance_decision: str
     rebalance_decision_status: str
+
+    review_action: str
 
     first_year_net_benefit_eur: float | None
     first_year_net_improvement_bps_of_treasury: (
@@ -41,6 +53,11 @@ class MonthlyReviewReport:
     )
 
     review_status: str
+
+    mandate_blocking_reasons: tuple[
+        str,
+        ...
+    ]
 
     evidence_blocked_candidate_labels: tuple[
         str,
@@ -96,6 +113,11 @@ class MonthlyReviewReport:
         if not self.rebalance_decision_id:
             raise ValueError(
                 "rebalance_decision_id cannot be empty."
+            )
+
+        if not self.mandate_surveillance_id:
+            raise ValueError(
+                "mandate_surveillance_id cannot be empty."
             )
 
         if not self.as_of:
@@ -173,6 +195,16 @@ class MonthlyReviewReport:
                 "capital must equal treasury capital."
             )
 
+        if self.mandate_surveillance_status not in (
+            "compliant",
+            "evidence_required",
+            "breach",
+        ):
+            raise ValueError(
+                "Unsupported mandate surveillance status: "
+                f"{self.mandate_surveillance_status}"
+            )
+
         if self.rebalance_decision not in (
             "keep_current",
             "needs_review",
@@ -192,12 +224,60 @@ class MonthlyReviewReport:
                 f"{self.rebalance_decision_status}"
             )
 
+        if self.review_action not in (
+            MONTHLY_REVIEW_ACTIONS
+        ):
+            raise ValueError(
+                "Unsupported monthly review action: "
+                f"{self.review_action}"
+            )
+
         if self.review_status not in (
             MONTHLY_REVIEW_STATUSES
         ):
             raise ValueError(
                 "Unsupported monthly review status: "
                 f"{self.review_status}"
+            )
+
+        if (
+            self.mandate_surveillance_status == "breach"
+            and not self.mandate_blocking_reasons
+        ):
+            raise ValueError(
+                "Mandate breach requires at least one "
+                "blocking reason."
+            )
+
+        if (
+            self.mandate_surveillance_status
+            != "breach"
+            and self.mandate_blocking_reasons
+        ):
+            raise ValueError(
+                "Mandate blocking reasons require a "
+                "breach surveillance status."
+            )
+
+        if (
+            self.mandate_surveillance_status == "breach"
+            and self.review_action
+            != "review_for_rebalance"
+        ):
+            raise ValueError(
+                "Mandate breach must result in "
+                "review_for_rebalance."
+            )
+
+        if (
+            self.mandate_surveillance_status
+            == "evidence_required"
+            and self.review_action
+            != "evidence_required"
+        ):
+            raise ValueError(
+                "Evidence-required mandate surveillance "
+                "must result in evidence_required."
             )
 
         if self.review_status == "complete":
@@ -223,6 +303,15 @@ class MonthlyReviewReport:
                     "one blocked candidate or evidence "
                     "requirement."
                 )
+
+        if (
+            self.review_action == "evidence_required"
+            and not self.evidence_requirements
+        ):
+            raise ValueError(
+                "evidence_required review action requires "
+                "at least one evidence requirement."
+            )
 
         if not self.summary:
             raise ValueError(

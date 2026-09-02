@@ -41,6 +41,10 @@ from treasury_intelligence.analytics.monthly_reviews import (
     build_monthly_review_report,
 )
 
+from treasury_intelligence.analytics.mandate_surveillance import (
+    build_treasury_mandate_surveillance,
+)
+
 from treasury_intelligence.analytics.portfolio import (
     build_integrated_portfolio_candidate,
 )
@@ -621,6 +625,23 @@ def main() -> None:
         )
     )
 
+    mandate_surveillance = (
+        build_treasury_mandate_surveillance(
+            surveillance_id=(
+                "monthly_review_mandate_"
+                "surveillance_2026_08_30"
+            ),
+            state=state,
+            holding_assessments=(),
+            notes=(
+                "The current modeled treasury state "
+                "contains no invested positions. "
+                "Therefore there are no current holdings "
+                "to assess for mandate deterioration."
+            ),
+        )
+    )
+
     review = (
         build_monthly_review_report(
             review_id=(
@@ -637,6 +658,9 @@ def main() -> None:
             ),
             rebalance_decision=(
                 decision
+            ),
+            mandate_surveillance=(
+                mandate_surveillance
             ),
             notes=(
                 "7D/8A integrated monthly-review "
@@ -891,6 +915,11 @@ def main() -> None:
     )
 
     print(
+        f"Mandate surveillance:          "
+        f"{review.mandate_surveillance_status}"
+    )
+
+    print(
         f"Rebalance decision:            "
         f"{review.rebalance_decision}"
     )
@@ -898,6 +927,11 @@ def main() -> None:
     print(
         f"Decision status:               "
         f"{review.rebalance_decision_status}"
+    )
+
+    print(
+        f"Final review action:           "
+        f"{review.review_action}"
     )
 
     print(
