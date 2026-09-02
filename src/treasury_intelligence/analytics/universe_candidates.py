@@ -12,6 +12,7 @@ from treasury_intelligence.analytics.btf_risk_assessments import (
 )
 
 from treasury_intelligence.analytics.bubill_risk_assessments import (
+    get_bubill_2027_08_18_risk_assessments,
     get_bubill_risk_assessments,
 )
 
@@ -127,8 +128,13 @@ from treasury_intelligence.sources.germany import (
     BUBILL_2027_07_14,
     BUBILL_2027_07_14_ACCESSIBILITY,
     BUBILL_2027_07_14_MARKET,
+    BUBILL_2027_08_18,
+    BUBILL_2027_08_18_ACCESSIBILITY,
+    BUBILL_2027_08_18_MARKET,
     get_bubill_2027_07_14_market_observation,
     get_bubill_2027_07_14_snapshot,
+    get_bubill_2027_08_18_market_observation,
+    get_bubill_2027_08_18_snapshot,
 )
 
 from treasury_intelligence.sources.ibkr import (
@@ -562,53 +568,48 @@ def build_btf_2027_08_11_universe_candidate(
     )
 
 
-def build_bubill_universe_candidate(
+def _build_german_bubill_universe_candidate(
+    *,
     position_size_eur: float,
-    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
-    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    mandate: TreasuryMandate,
+    holding_period_days: int,
+    instrument: Instrument,
+    market: Market,
+    accessibility: Accessibility,
+    snapshot: OpportunitySnapshot,
+    market_observation: MarketObservation,
+    risk_assessments: tuple[RiskAssessment, ...],
+    assessment_key: str,
+    label: str,
 ) -> PortfolioCandidateAssessment:
-    snapshot = (
-        get_bubill_2027_07_14_snapshot()
-    )
-
-    market_observation = (
-        get_bubill_2027_07_14_market_observation()
-    )
-
     size_id = _position_size_id(
         position_size_eur
     )
 
     return analyze_opportunity_position(
         assessment_id=(
-            f"bubill_{size_id}_universe"
+            f"{assessment_key}_{size_id}_universe"
         ),
-        label="German Bubill",
+        label=label,
         mandate=mandate,
-        instrument=BUBILL_2027_07_14,
-        market=BUBILL_2027_07_14_MARKET,
-        accessibility=(
-            BUBILL_2027_07_14_ACCESSIBILITY
-        ),
+        instrument=instrument,
+        market=market,
+        accessibility=accessibility,
         snapshot=snapshot,
         position_size_eur=position_size_eur,
         holding_period_days=holding_period_days,
         position_builder=lambda size: (
             build_sovereign_bill_position_analysis(
                 snapshot=snapshot,
-                market_observation=(
-                    market_observation
-                ),
+                market_observation=market_observation,
                 position_size_eur=size,
             )
         ),
-        risk_assessments=(
-            get_bubill_risk_assessments()
-        ),
+        risk_assessments=risk_assessments,
         return_component_builder=lambda size: (
             build_ibkr_europe_otc_bond_return_components(
-                instrument=BUBILL_2027_07_14,
-                market=BUBILL_2027_07_14_MARKET,
+                instrument=instrument,
+                market=market,
                 snapshot=snapshot,
                 position_size_eur=size,
                 reference_yield_includes_product_fee=None,
@@ -623,8 +624,54 @@ def build_bubill_universe_candidate(
         market_observation=market_observation,
         notes=(
             "Production universe candidate built for "
-            "an arbitrary German Bubill position size."
+            f"an arbitrary {label} position size."
         ),
+    )
+
+
+def build_bubill_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    return _build_german_bubill_universe_candidate(
+        position_size_eur=position_size_eur,
+        mandate=mandate,
+        holding_period_days=holding_period_days,
+        instrument=BUBILL_2027_07_14,
+        market=BUBILL_2027_07_14_MARKET,
+        accessibility=BUBILL_2027_07_14_ACCESSIBILITY,
+        snapshot=get_bubill_2027_07_14_snapshot(),
+        market_observation=(
+            get_bubill_2027_07_14_market_observation()
+        ),
+        risk_assessments=get_bubill_risk_assessments(),
+        assessment_key="bubill",
+        label="German Bubill Jul 2027",
+    )
+
+
+def build_bubill_2027_08_18_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    return _build_german_bubill_universe_candidate(
+        position_size_eur=position_size_eur,
+        mandate=mandate,
+        holding_period_days=holding_period_days,
+        instrument=BUBILL_2027_08_18,
+        market=BUBILL_2027_08_18_MARKET,
+        accessibility=BUBILL_2027_08_18_ACCESSIBILITY,
+        snapshot=get_bubill_2027_08_18_snapshot(),
+        market_observation=(
+            get_bubill_2027_08_18_market_observation()
+        ),
+        risk_assessments=(
+            get_bubill_2027_08_18_risk_assessments()
+        ),
+        assessment_key="bubill_2027_08_18",
+        label="German Bubill Aug 2027",
     )
 
 
@@ -943,9 +990,16 @@ def build_model_company_opportunity_universe(
         ),
         UniverseOpportunity(
             key="bubill",
-            label="German Bubill",
+            label="German Bubill Jul",
             candidate_builder=(
                 build_bubill_universe_candidate
+            ),
+        ),
+        UniverseOpportunity(
+            key="bubill_aug_2027",
+            label="German Bubill Aug",
+            candidate_builder=(
+                build_bubill_2027_08_18_universe_candidate
             ),
         ),
         UniverseOpportunity(

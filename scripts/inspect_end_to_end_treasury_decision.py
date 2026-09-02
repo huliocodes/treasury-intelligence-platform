@@ -26,6 +26,7 @@ from treasury_intelligence.analytics.portfolio_proposals import (
 from treasury_intelligence.analytics.recommendation_candidates import (
     build_btf_2027_08_11_recommendation_candidate,
     build_btf_recommendation_candidate,
+    build_bubill_2027_08_18_recommendation_candidate,
     build_bubill_recommendation_candidate,
     build_ernx_recommendation_candidate,
 )
@@ -71,9 +72,16 @@ ALLOCATION_OPPORTUNITIES = (
     ),
     AllocationOpportunity(
         key="bubill",
-        label="German Bubill",
+        label="German Bubill Jul",
         candidate_builder=(
             build_bubill_recommendation_candidate
+        ),
+    ),
+    AllocationOpportunity(
+        key="bubill_aug_2027",
+        label="German Bubill Aug",
+        candidate_builder=(
+            build_bubill_2027_08_18_recommendation_candidate
         ),
     ),
 )

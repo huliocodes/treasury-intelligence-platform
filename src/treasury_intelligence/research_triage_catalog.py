@@ -198,23 +198,28 @@ def _german_bubill_bu0e436() -> ResearchEvidenceState:
 def _german_bubill_bu0e444() -> ResearchEvidenceState:
     return ResearchEvidenceState(
         opportunity_id="german_bubill_bu0e444",
-        prior_analysis_status="partial",
+        prior_analysis_status="complete",
         identity_evidence_sufficient=True,
         corporate_access_evidence_sufficient=True,
         current_market_return_evidence_sufficient=True,
-        realistic_net_return_evidence_sufficient=False,
-        position_liquidity_evidence_sufficient=False,
+        realistic_net_return_evidence_sufficient=True,
+        position_liquidity_evidence_sufficient=True,
         execution_cost_evidence_sufficient=True,
-        risk_evidence_sufficient=False,
+        risk_evidence_sufficient=True,
         reusable_analysis_summary=(
-            "The existing German Bubill access route, OTC commission model "
-            "and sovereign-bill analytics can be reused."
+            "DE000BU0E444 is now recommendation-ready through the full "
+            "downstream analysis pipeline. The 17 August 2026 auction "
+            "yield, EUR 3.0 billion current issue scale, German sovereign "
+            "risk evidence, IBKR OTC execution-cost model and position-size "
+            "liquidity analysis are integrated."
         ),
         evidence_notes=(
-            "The 17 August 2026 auction produced approximately 2.656% "
-            "average yield.",
-            "Security-specific position liquidity, refreshed sovereign risk "
-            "evidence and realistic net return remain incomplete.",
+            "At EUR 5 million the position represents approximately "
+            "0.1667% of current issue outstanding and receives supported "
+            "position-aware liquidity status.",
+            "The existing V1 pipeline produces a defensible return of "
+            "approximately 2.556% at EUR 5 million with no recommendation "
+            "blockers or remaining evidence requirements.",
         ),
     )
 
