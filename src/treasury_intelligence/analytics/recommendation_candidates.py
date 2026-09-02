@@ -8,6 +8,7 @@ from treasury_intelligence.analytics.universe_candidates import (
     build_bubill_universe_candidate,
     build_ernx_universe_candidate,
     build_franklin_euro_short_maturity_universe_candidate,
+    build_ishares_govt_0_1yr_universe_candidate,
 )
 
 from treasury_intelligence.mandates.model_company import (
@@ -46,6 +47,18 @@ def build_franklin_euro_short_maturity_recommendation_candidate(
             mandate=mandate,
             holding_period_days=holding_period_days,
         )
+    )
+
+
+def build_ishares_govt_0_1yr_recommendation_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    return build_ishares_govt_0_1yr_universe_candidate(
+        position_size_eur=position_size_eur,
+        mandate=mandate,
+        holding_period_days=holding_period_days,
     )
 
 

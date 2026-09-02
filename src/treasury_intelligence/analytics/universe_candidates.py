@@ -37,6 +37,10 @@ from treasury_intelligence.analytics.ibkr_returns import (
     build_ibkr_return_components,
 )
 
+from treasury_intelligence.analytics.ishares_govt_0_1yr_risk_assessments import (
+    get_ishares_govt_0_1yr_risk_assessments,
+)
+
 from treasury_intelligence.analytics.positions import (
     build_aave_position_analysis,
     build_bank_deposit_position_analysis,
@@ -164,6 +168,14 @@ from treasury_intelligence.sources.ishares import (
     ERNX_MARKET,
     get_ernx_market_observation,
     get_ernx_snapshot,
+)
+
+from treasury_intelligence.sources.ishares_govt_0_1yr import (
+    ISHARES_GOVT_0_1YR_ACCESSIBILITY,
+    ISHARES_GOVT_0_1YR_INSTRUMENT,
+    ISHARES_GOVT_0_1YR_MARKET,
+    get_ishares_govt_0_1yr_market_observation,
+    get_ishares_govt_0_1yr_snapshot,
 )
 
 from treasury_intelligence.sources.spiko import (
@@ -576,6 +588,100 @@ def build_franklin_euro_short_maturity_universe_candidate(
             "Production universe candidate built for an "
             "arbitrary Franklin Euro Short Maturity "
             "position size."
+        ),
+    )
+
+
+def build_ishares_govt_0_1yr_universe_candidate(
+    position_size_eur: float,
+    mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+) -> PortfolioCandidateAssessment:
+    snapshot = get_ishares_govt_0_1yr_snapshot()
+
+    market_observation = (
+        get_ishares_govt_0_1yr_market_observation()
+    )
+
+    position_scale_eur = (
+        snapshot.share_class_aum_eur
+        or snapshot.fund_aum_eur
+    )
+
+    if position_scale_eur is None:
+        raise ValueError(
+            "iShares Govt Bond 0-1yr requires fund "
+            "or share-class scale for position analysis."
+        )
+
+    position_scale_reference = (
+        "share_class_aum"
+        if snapshot.share_class_aum_eur is not None
+        else "fund_aum"
+    )
+
+    size_id = _position_size_id(
+        position_size_eur
+    )
+
+    return analyze_opportunity_position(
+        assessment_id=(
+            "ishares_govt_0_1yr_"
+            f"{size_id}_universe"
+        ),
+        label="iShares € Govt Bond 0-1yr",
+        mandate=mandate,
+        instrument=ISHARES_GOVT_0_1YR_INSTRUMENT,
+        market=ISHARES_GOVT_0_1YR_MARKET,
+        accessibility=ISHARES_GOVT_0_1YR_ACCESSIBILITY,
+        snapshot=snapshot,
+        position_size_eur=position_size_eur,
+        holding_period_days=holding_period_days,
+        position_builder=lambda size: (
+            build_etf_position_analysis(
+                snapshot=snapshot,
+                position_size_eur=size,
+                position_scale_eur=(
+                    position_scale_eur
+                ),
+                position_scale_reference=(
+                    position_scale_reference
+                ),
+                market_observation=(
+                    market_observation
+                ),
+            )
+        ),
+        risk_assessments=(
+            get_ishares_govt_0_1yr_risk_assessments()
+        ),
+        return_component_builder=lambda _size: (
+            build_ibkr_return_components(
+                instrument=ISHARES_GOVT_0_1YR_INSTRUMENT,
+                market=ISHARES_GOVT_0_1YR_MARKET,
+                snapshot=snapshot,
+                reference_yield_includes_product_fee=False,
+                access_cost_evidence=(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                ),
+                trading_cost_evidence=(
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                ),
+                estimated_roundtrip_slippage_bps=(
+                    ETF_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                ),
+                estimated_slippage_basis=(
+                    "Conservative V1 roundtrip ETF execution "
+                    "estimate. This economics assumption does "
+                    "not upgrade the separate position-size "
+                    "liquidity conclusion."
+                ),
+            )
+        ),
+        market_observation=market_observation,
+        notes=(
+            "Production universe candidate built for an "
+            "arbitrary iShares Govt Bond 0-1yr position."
         ),
     )
 
@@ -1098,6 +1204,13 @@ def build_model_company_opportunity_universe(
             label="Franklin Euro Short Maturity",
             candidate_builder=(
                 build_franklin_euro_short_maturity_universe_candidate
+            ),
+        ),
+        UniverseOpportunity(
+            key="ishares_govt_0_1yr",
+            label="iShares € Govt Bond 0-1yr",
+            candidate_builder=(
+                build_ishares_govt_0_1yr_universe_candidate
             ),
         ),
         UniverseOpportunity(

@@ -30,6 +30,7 @@ from treasury_intelligence.analytics.recommendation_candidates import (
     build_bubill_recommendation_candidate,
     build_ernx_recommendation_candidate,
     build_franklin_euro_short_maturity_recommendation_candidate,
+    build_ishares_govt_0_1yr_recommendation_candidate,
 )
 
 from treasury_intelligence.analytics.recommendations import (
@@ -62,6 +63,13 @@ ALLOCATION_OPPORTUNITIES = (
         label="Franklin Euro Short Maturity",
         candidate_builder=(
             build_franklin_euro_short_maturity_recommendation_candidate
+        ),
+    ),
+    AllocationOpportunity(
+        key="ishares_govt_0_1yr",
+        label="iShares € Govt Bond 0-1yr",
+        candidate_builder=(
+            build_ishares_govt_0_1yr_recommendation_candidate
         ),
     ),
     AllocationOpportunity(

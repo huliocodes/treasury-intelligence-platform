@@ -165,14 +165,14 @@ def _franklin_euro_short_maturity() -> ResearchEvidenceState:
 def _ishares_eur_government_0_1y() -> ResearchEvidenceState:
     return ResearchEvidenceState(
         opportunity_id="ishares_eur_government_0_1y",
-        prior_analysis_status="none",
+        prior_analysis_status="complete",
         identity_evidence_sufficient=True,
         corporate_access_evidence_sufficient=True,
         current_market_return_evidence_sufficient=True,
-        realistic_net_return_evidence_sufficient=False,
-        position_liquidity_evidence_sufficient=False,
-        execution_cost_evidence_sufficient=False,
-        risk_evidence_sufficient=False,
+        realistic_net_return_evidence_sufficient=True,
+        position_liquidity_evidence_sufficient=True,
+        execution_cost_evidence_sufficient=True,
+        risk_evidence_sufficient=True,
         reusable_analysis_summary=(
             "Exact UCITS implementation, Xetra access, recent YTM and "
             "fund-scale evidence are already established."
