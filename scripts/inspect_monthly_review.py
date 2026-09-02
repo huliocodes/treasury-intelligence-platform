@@ -65,9 +65,8 @@ from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
 
-from treasury_intelligence.models.cash_baselines import (
-    CashBalance,
-    CashBaseline,
+from treasury_intelligence.cash_baselines import (
+    build_model_company_cash_baseline,
 )
 
 from treasury_intelligence.models.economic_comparisons import (
@@ -82,69 +81,6 @@ from treasury_intelligence.models.rebalance import (
 AS_OF = "2026-09-03"
 
 REBALANCE_THRESHOLD_BPS = 5.0
-
-
-def build_model_company_cash_baseline(
-    total_cash_eur: float,
-) -> CashBaseline:
-    if total_cash_eur <= 0:
-        return CashBaseline(
-            baseline_id=(
-                "model_company_cash_baseline_"
-                "2026_09_03"
-            ),
-            mandate_id=(
-                MODEL_COMPANY_MANDATE.mandate_id
-            ),
-            as_of=AS_OF,
-            total_cash_eur=0.0,
-            balances=(),
-            notes=(
-                "No currently unallocated treasury "
-                "cash exists in this state."
-            ),
-        )
-
-    unresolved_cash = CashBalance(
-        balance_id=(
-            "model_company_unresolved_"
-            "corporate_cash"
-        ),
-        label="Unresolved corporate cash",
-        balance_type="other_cash",
-        balance_eur=total_cash_eur,
-        annual_return_pct=None,
-        return_evidence_available=False,
-        institution=None,
-        source_reference=None,
-        notes=(
-            "The model company does not yet have "
-            "verified account-level balance and "
-            "cash-remuneration evidence. No bank "
-            "allocation or return is invented."
-        ),
-    )
-
-    return CashBaseline(
-        baseline_id=(
-            "model_company_cash_baseline_"
-            "2026_09_03"
-        ),
-        mandate_id=(
-            MODEL_COMPANY_MANDATE.mandate_id
-        ),
-        as_of=AS_OF,
-        total_cash_eur=total_cash_eur,
-        balances=(
-            unresolved_cash,
-        ),
-        notes=(
-            "Current unallocated model-company "
-            "treasury cash baseline. The full balance "
-            "is represented explicitly while its "
-            "return remains unresolved."
-        ),
-    )
 
 
 def main() -> None:
@@ -233,9 +169,7 @@ def main() -> None:
 
     cash_baseline = (
         build_model_company_cash_baseline(
-            total_cash_eur=(
-                state.unallocated_capital_eur
-            ),
+            as_of=AS_OF,
         )
     )
 
