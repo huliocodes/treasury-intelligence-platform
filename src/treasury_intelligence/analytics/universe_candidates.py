@@ -127,6 +127,11 @@ from treasury_intelligence.sources.blackrock import (
     get_blackrock_ics_euro_liquidity_core_t0_snapshot,
 )
 
+from treasury_intelligence.sources.ecb import (
+    EstrObservation,
+    fetch_recent_estr,
+)
+
 from treasury_intelligence.sources.franklin import (
     FRANKLIN_EURO_SHORT_MATURITY_ACCESSIBILITY,
     FRANKLIN_EURO_SHORT_MATURITY_INSTRUMENT,
@@ -214,9 +219,6 @@ from treasury_intelligence.sources.xtrackers import (
 
 DEFAULT_HOLDING_PERIOD_DAYS = 365
 
-ESTR_RATE_PCT = 2.188
-ESTR_REFERENCE_DATE = "2026-08-27"
-
 RISK_ASSESSED_AT = "2026-08-31"
 
 
@@ -261,14 +263,29 @@ def _position_size_id(
     )
 
 
+def _latest_estr_observation(
+) -> EstrObservation:
+    observations = fetch_recent_estr(
+        limit=1
+    )
+
+    return observations[-1]
+
+
 def build_xeon_universe_candidate(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    estr_observation: EstrObservation | None = None,
 ) -> PortfolioCandidateAssessment:
+    estr = (
+        estr_observation
+        or _latest_estr_observation()
+    )
+
     snapshot = build_xeon_snapshot(
-        estr_rate_pct=ESTR_RATE_PCT,
-        estr_reference_date=ESTR_REFERENCE_DATE,
+        estr_rate_pct=estr.rate_pct,
+        estr_reference_date=estr.reference_date,
     )
 
     market_observation = (
@@ -339,11 +356,17 @@ def build_amundi_universe_candidate(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    estr_observation: EstrObservation | None = None,
 ) -> PortfolioCandidateAssessment:
+    estr = (
+        estr_observation
+        or _latest_estr_observation()
+    )
+
     snapshot = (
         build_amundi_smart_overnight_snapshot(
-            estr_rate_pct=ESTR_RATE_PCT,
-            estr_reference_date=ESTR_REFERENCE_DATE,
+            estr_rate_pct=estr.rate_pct,
+            estr_reference_date=estr.reference_date,
         )
     )
 
@@ -612,10 +635,16 @@ def build_icash_universe_candidate(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    estr_observation: EstrObservation | None = None,
 ) -> PortfolioCandidateAssessment:
+    estr = (
+        estr_observation
+        or _latest_estr_observation()
+    )
+
     snapshot = get_icash_snapshot(
-        estr_rate_pct=ESTR_RATE_PCT,
-        estr_reference_date=ESTR_REFERENCE_DATE,
+        estr_rate_pct=estr.rate_pct,
+        estr_reference_date=estr.reference_date,
     )
 
     market_observation = (
@@ -1269,10 +1298,16 @@ def _build_aave_candidate_builder() -> CandidateBuilder:
 
 
 def build_model_company_opportunity_universe(
+    estr_observation: EstrObservation | None = None,
 ) -> tuple[
     UniverseOpportunity,
     ...
 ]:
+    estr = (
+        estr_observation
+        or _latest_estr_observation()
+    )
+
     aave_builder = (
         _build_aave_candidate_builder()
     )
@@ -1289,14 +1324,26 @@ def build_model_company_opportunity_universe(
             key="xeon",
             label="XEON",
             candidate_builder=(
-                build_xeon_universe_candidate
+                lambda size, mandate: (
+                    build_xeon_universe_candidate(
+                        position_size_eur=size,
+                        mandate=mandate,
+                        estr_observation=estr,
+                    )
+                )
             ),
         ),
         UniverseOpportunity(
             key="amundi",
             label="Amundi Overnight",
             candidate_builder=(
-                build_amundi_universe_candidate
+                lambda size, mandate: (
+                    build_amundi_universe_candidate(
+                        position_size_eur=size,
+                        mandate=mandate,
+                        estr_observation=estr,
+                    )
+                )
             ),
         ),
         UniverseOpportunity(
@@ -1324,7 +1371,13 @@ def build_model_company_opportunity_universe(
             key="icash",
             label="ICASH",
             candidate_builder=(
-                build_icash_universe_candidate
+                lambda size, mandate: (
+                    build_icash_universe_candidate(
+                        position_size_eur=size,
+                        mandate=mandate,
+                        estr_observation=estr,
+                    )
+                )
             ),
         ),
         UniverseOpportunity(
@@ -1381,6 +1434,7 @@ def analyze_opportunity_universe_at_position_size(
     *,
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
+    estr_observation: EstrObservation | None = None,
 ) -> tuple[
     PortfolioCandidateAssessment,
     ...
@@ -1391,7 +1445,9 @@ def analyze_opportunity_universe_at_position_size(
         )
 
     opportunities = (
-        build_model_company_opportunity_universe()
+        build_model_company_opportunity_universe(
+            estr_observation=estr_observation,
+        )
     )
 
     return tuple(
