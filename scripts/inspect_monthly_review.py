@@ -12,12 +12,8 @@ from treasury_intelligence.analytics.allocation_deltas import (
     build_treasury_allocation_delta,
 )
 
-from treasury_intelligence.analytics.allocation_opportunities import (
-    ALLOCATION_OPPORTUNITIES,
-)
-
 from treasury_intelligence.analytics.allocation_selection import (
-    build_return_priority_portfolio_construction,
+    build_single_position_construction_from_analyzed_candidates,
 )
 
 from treasury_intelligence.analytics.cash_returns import (
@@ -99,18 +95,19 @@ def main() -> None:
         )
     )
 
-    construction, selected_candidates = (
-        build_return_priority_portfolio_construction(
+    construction, allocation_candidates = (
+        build_single_position_construction_from_analyzed_candidates(
             construction_id=(
                 "monthly_review_construction_"
                 "2026_09_03"
             ),
             mandate=MODEL_COMPANY_MANDATE,
-            opportunities=ALLOCATION_OPPORTUNITIES,
+            candidates=universe_candidates,
             notes=(
-                "Monthly review uses the production "
-                "return-priority allocation opportunity "
-                "registry."
+                "Monthly review uses the exact same "
+                "freshness-gated EUR 5M production "
+                "candidate assessments as the canonical "
+                "production recommendation."
             ),
         )
     )
@@ -122,13 +119,25 @@ def main() -> None:
                 "2026_09_03"
             ),
             construction=construction,
-            candidates=selected_candidates,
+            candidates=allocation_candidates,
             notes=(
                 "Monthly-review proposal generated "
-                "from the production allocation "
-                "opportunity set."
+                "from the canonical freshness-gated "
+                "production universe."
             ),
         )
+    )
+
+    selected_assessment_ids = {
+        line.candidate_assessment_id
+        for line in construction.allocation_lines
+    }
+
+    selected_candidates = tuple(
+        candidate
+        for candidate in allocation_candidates
+        if candidate.assessment_id
+        in selected_assessment_ids
     )
 
     current_treasury = (
@@ -216,8 +225,9 @@ def main() -> None:
         build_candidate_allocation_return_input(
             candidate=candidate,
             notes=(
-                "Production candidate return used "
-                "for recurring treasury review."
+                "Selected canonical production "
+                "candidate return used for recurring "
+                "treasury review."
             ),
         )
         for candidate in selected_candidates
@@ -258,7 +268,7 @@ def main() -> None:
             candidate.market_id,
             candidate.access_route_id,
         ): candidate
-        for candidate in selected_candidates
+        for candidate in allocation_candidates
     }
 
     switching_friction_inputs = tuple(
@@ -443,7 +453,7 @@ def main() -> None:
 
     print(
         f"Selected positions:            "
-        f"{len(selected_candidates)}"
+        f"{len(construction.allocation_lines)}"
     )
 
     for candidate in selected_candidates:
@@ -657,7 +667,58 @@ def main() -> None:
 
     assert proposal.allocated_capital_eur > 0
 
-    assert selected_candidates
+    assert allocation_candidates
+
+    assert allocation_candidates == universe_candidates
+
+    assert construction.candidate_count == len(
+        universe_candidates
+    )
+
+    assert construction.candidate_count == 14
+
+    assert (
+        construction.recommendation_ready_candidate_count
+        == 2
+    )
+
+    assert proposal.candidate_count == 14
+
+    assert (
+        proposal.recommendation_ready_candidate_count
+        == 2
+    )
+
+    assert len(construction.allocation_lines) == 1
+
+    selected_assessment_id = (
+        construction.allocation_lines[0]
+        .candidate_assessment_id
+    )
+
+    selected_matches = tuple(
+        candidate
+        for candidate in universe_candidates
+        if (
+            candidate.assessment_id
+            == selected_assessment_id
+        )
+    )
+
+    assert len(selected_matches) == 1
+
+    selected_candidate = selected_matches[0]
+
+    assert selected_candidate.label == (
+        "French BTF Aug 2027"
+    )
+
+    assert (
+        selected_candidate.recommendation_ready
+        is True
+    )
+
+    assert len(selected_candidates) == 1
 
     assert all(
         candidate.recommendation_ready
@@ -795,8 +856,18 @@ def main() -> None:
     print()
 
     print(
-        "All Milestone 15D cost-inclusion "
-        "provenance assertions passed."
+        "Canonical monthly-review candidate set: yes"
+    )
+
+    print(
+        "Canonical monthly-review winner:        yes"
+    )
+
+    print()
+
+    print(
+        "All Milestone 15L canonical monthly-review "
+        "path assertions passed."
     )
 
 
