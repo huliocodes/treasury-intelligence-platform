@@ -54,8 +54,8 @@ from treasury_intelligence.analytics.switching_friction import (
     build_switching_friction_assessment,
 )
 
-from treasury_intelligence.analytics.treasury_state import (
-    build_treasury_state,
+from treasury_intelligence.current_treasury import (
+    build_model_company_current_treasury,
 )
 
 from treasury_intelligence.analytics.universe_candidates import (
@@ -66,9 +66,6 @@ from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
 
-from treasury_intelligence.cash_baselines import (
-    build_model_company_cash_baseline,
-)
 
 from treasury_intelligence.models.economic_comparisons import (
     UnallocatedReturnInput,
@@ -133,22 +130,20 @@ def main() -> None:
         )
     )
 
-    state = (
-        build_treasury_state(
-            state_id=(
-                "monthly_review_state_"
-                "2026_09_03"
-            ),
-            mandate=MODEL_COMPANY_MANDATE,
+    current_treasury = (
+        build_model_company_current_treasury(
             as_of=AS_OF,
             positions=(),
             notes=(
-                "Model company currently modeled "
-                "as fully unallocated pending a real "
-                "current-cash baseline."
+                "Production current-treasury input "
+                "currently represents the model company "
+                "as fully unallocated because verified "
+                "real holdings have not yet been supplied."
             ),
         )
     )
+
+    state = current_treasury.state
 
     delta = (
         build_treasury_allocation_delta(
@@ -167,12 +162,7 @@ def main() -> None:
     )
 
     cash_baseline = (
-        build_model_company_cash_baseline(
-            as_of=AS_OF,
-            total_cash_eur=(
-                state.unallocated_capital_eur
-            ),
-        )
+        current_treasury.cash_baseline
     )
 
     cash_return_assessment = (
