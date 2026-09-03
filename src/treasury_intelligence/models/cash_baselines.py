@@ -24,6 +24,7 @@ class CashBalance:
     return_evidence_available: bool
     institution: str | None = None
     source_reference: str | None = None
+    return_evidence_date: str | None = None
     notes: str | None = None
 
     def __post_init__(self) -> None:

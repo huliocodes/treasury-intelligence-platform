@@ -21,7 +21,7 @@ from treasury_intelligence.analytics.allocation_selection import (
 )
 
 from treasury_intelligence.analytics.cash_returns import (
-    build_cash_baseline_return_assessment,
+    build_freshness_aware_cash_baseline_return_assessment,
     build_unallocated_return_input,
 )
 
@@ -167,12 +167,13 @@ def main() -> None:
     )
 
     cash_return_assessment = (
-        build_cash_baseline_return_assessment(
+        build_freshness_aware_cash_baseline_return_assessment(
             assessment_id=(
                 "model_company_cash_return_"
                 "2026_09_03"
             ),
             baseline=cash_baseline,
+            as_of="2026-09-03",
             notes=(
                 "Current model-company cash return "
                 "assessment derived from the explicit "
