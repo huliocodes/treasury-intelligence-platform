@@ -63,6 +63,10 @@ from treasury_intelligence.mandates.model_company import (
 )
 
 
+from treasury_intelligence.models.cash_baselines import (
+    CashBalance,
+)
+
 from treasury_intelligence.models.economic_comparisons import (
     UnallocatedReturnInput,
 )
@@ -144,11 +148,39 @@ def main() -> None:
         build_model_company_current_treasury(
             as_of=AS_OF,
             positions=(),
+            cash_balances=(
+                CashBalance(
+                    balance_id=(
+                        "model_company_operating_cash_"
+                        "2026_09_03"
+                    ),
+                    label=(
+                        "Model company corporate "
+                        "operating cash"
+                    ),
+                    balance_type="operating_account",
+                    balance_eur=treasury_capital_eur,
+                    annual_return_pct=0.0,
+                    return_evidence_available=True,
+                    institution="Model Company Bank",
+                    source_reference=(
+                        "model_company_supplied_"
+                        "cash_rate_2026_09_03"
+                    ),
+                    return_evidence_date=AS_OF,
+                    notes=(
+                        "Model-company supplied current "
+                        "cash economics: the EUR 5M "
+                        "operating cash balance earns "
+                        "0.00% annual return."
+                    ),
+                ),
+            ),
             notes=(
                 "Production current-treasury input "
-                "currently represents the model company "
-                "as fully unallocated because verified "
-                "real holdings have not yet been supplied."
+                "represents the model company as fully "
+                "unallocated in EUR operating cash "
+                "earning a supplied 0.00% annual return."
             ),
         )
     )
@@ -196,7 +228,7 @@ def main() -> None:
             assessment=cash_return_assessment,
             notes=(
                 "Current unallocated treasury return "
-                "derived from the unresolved current "
+                "derived from the supplied current "
                 "cash baseline."
             ),
         )
@@ -256,8 +288,8 @@ def main() -> None:
                 "Recurring economic comparison between "
                 "the current treasury state and the "
                 "current production portfolio proposal. "
-                "Unknown current cash economics remain "
-                "explicit."
+                "Supplied current cash economics are "
+                "included explicitly."
             ),
         )
     )
@@ -743,22 +775,37 @@ def main() -> None:
 
     assert (
         cash_return_assessment.assessment_status
-        == "incomplete"
+        == "complete"
+    )
+
+    assert (
+        cash_return_assessment.blended_annual_return_pct
+        == 0.0
     )
 
     assert (
         current_unallocated_return
         .evidence_available
-        is False
+        is True
+    )
+
+    assert (
+        current_unallocated_return.annual_return_pct
+        == 0.0
     )
 
     assert comparison.comparison_status == (
-        "incomplete"
+        "complete"
     )
 
-    assert comparison.current_annual_return_eur is None
+    assert comparison.current_annual_return_eur == 0.0
 
     assert comparison.proposed_annual_return_eur is not None
+
+    assert abs(
+        comparison.proposed_annual_return_eur
+        - 137985.0
+    ) < 1.0
 
     assert switching_friction_inputs
 
@@ -790,15 +837,15 @@ def main() -> None:
         == "compliant"
     )
 
-    assert decision.decision == "needs_review"
+    assert decision.decision == "rebalance"
 
     assert (
         decision.decision_status
-        == "review_required"
+        == "decision_ready"
     )
 
     assert review.review_action == (
-        "evidence_required"
+        "review_for_rebalance"
     )
 
     assert review.review_status == (
@@ -838,7 +885,7 @@ def main() -> None:
     )
 
     print(
-        "Unknown cash economics preserved:      yes"
+        "Supplied 0% cash economics connected:   yes"
     )
 
     print(
@@ -866,8 +913,8 @@ def main() -> None:
     print()
 
     print(
-        "All Milestone 15L canonical monthly-review "
-        "path assertions passed."
+        "All Milestone 15M supplied-cash production "
+        "decision assertions passed."
     )
 
 
