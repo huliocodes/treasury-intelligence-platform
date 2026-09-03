@@ -74,14 +74,12 @@ from treasury_intelligence.models.economic_comparisons import (
     UnallocatedReturnInput,
 )
 
-from treasury_intelligence.models.rebalance import (
-    RebalancePolicy,
+from treasury_intelligence.policies.model_company import (
+    MODEL_COMPANY_REBALANCE_POLICY,
 )
 
 
 AS_OF = "2026-09-03"
-
-REBALANCE_THRESHOLD_BPS = 5.0
 
 
 def main() -> None:
@@ -326,19 +324,7 @@ def main() -> None:
         )
     )
 
-    policy = RebalancePolicy(
-        policy_id=(
-            "monthly_review_validation_policy"
-        ),
-        minimum_first_year_net_improvement_bps_of_treasury=(
-            REBALANCE_THRESHOLD_BPS
-        ),
-        notes=(
-            "Five-basis-point threshold remains a "
-            "deterministic validation fixture, not "
-            "a production treasury policy."
-        ),
-    )
+    policy = MODEL_COMPANY_REBALANCE_POLICY
 
     decision = (
         build_rebalance_decision(
