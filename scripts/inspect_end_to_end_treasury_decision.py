@@ -8,6 +8,7 @@ from treasury_intelligence.analytics.allocation_opportunities import (
 
 from treasury_intelligence.analytics.allocation_selection import (
     build_return_priority_portfolio_construction,
+    build_single_position_construction_from_analyzed_candidates,
 )
 
 from treasury_intelligence.analytics.approvals import (
@@ -84,17 +85,18 @@ universe_candidates = (
 )
 
 
-construction, selected_candidates = (
-    build_return_priority_portfolio_construction(
+construction, allocation_candidates = (
+    build_single_position_construction_from_analyzed_candidates(
         construction_id=(
             "model_company_5m_return_priority"
         ),
         mandate=MODEL_COMPANY_MANDATE,
-        opportunities=ALLOCATION_OPPORTUNITIES,
+        candidates=universe_candidates,
         notes=(
-            "Return-priority V1 construction using the "
-            "currently recommendation-ready opportunity "
-            "set."
+            "Canonical production construction uses the "
+            "same freshness-gated EUR 5M candidate "
+            "assessments reported by the production "
+            "universe."
         ),
     )
 )
@@ -103,7 +105,7 @@ construction, selected_candidates = (
 proposal = build_portfolio_proposal(
     proposal_id="model_company_5m_proposal",
     construction=construction,
-    candidates=selected_candidates,
+    candidates=allocation_candidates,
 )
 
 
@@ -130,7 +132,7 @@ report = build_treasury_decision_report(
     mandate=MODEL_COMPANY_MANDATE,
     universe_candidates=universe_candidates,
     construction=construction,
-    allocation_candidates=selected_candidates,
+    allocation_candidates=allocation_candidates,
     recommendation=recommendation,
     approval=approval,
     notes=(
@@ -172,7 +174,7 @@ comparison_50 = (
             "selected_vs_50pct_diagnostic"
         ),
         selected_construction=construction,
-        selected_candidates=selected_candidates,
+        selected_candidates=allocation_candidates,
         alternative_construction=construction_50,
         alternative_candidates=candidates_50,
         notes=(
@@ -188,7 +190,7 @@ comparison_40 = (
             "selected_vs_40pct_diagnostic"
         ),
         selected_construction=construction,
-        selected_candidates=selected_candidates,
+        selected_candidates=allocation_candidates,
         alternative_construction=construction_40,
         alternative_candidates=candidates_40,
         notes=(

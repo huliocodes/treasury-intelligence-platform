@@ -364,3 +364,165 @@ def build_return_priority_portfolio_construction(
             selected_candidates
         ),
     )
+
+
+def build_single_position_construction_from_analyzed_candidates(
+    *,
+    construction_id: str,
+    mandate: TreasuryMandate,
+    candidates: tuple[
+        PortfolioCandidateAssessment,
+        ...
+    ],
+    notes: str | None = None,
+) -> tuple[
+    PortfolioConstructionAssessment,
+    tuple[
+        PortfolioCandidateAssessment,
+        ...
+    ],
+]:
+    """
+    Build a single-position construction from candidates
+    already analyzed at the exact treasury allocation size.
+
+    This is the canonical production path when the mandate
+    permits 100% concentration and the production universe
+    has already applied eligibility, economics, liquidity,
+    risk, evidence, and freshness gates.
+
+    The function does not rebuild or reinterpret candidates.
+    """
+
+    if not construction_id:
+        raise ValueError(
+            "construction_id is required."
+        )
+
+    if mandate.treasury_capital_eur <= 0:
+        raise ValueError(
+            "Treasury capital must be greater than zero."
+        )
+
+    if (
+        mandate.maximum_single_position_pct
+        < 100.0
+    ):
+        raise ValueError(
+            "Single-position analyzed-candidate "
+            "construction requires a mandate permitting "
+            "100% of treasury capital in one position."
+        )
+
+    assessment_ids = [
+        candidate.assessment_id
+        for candidate in candidates
+    ]
+
+    if len(assessment_ids) != len(
+        set(assessment_ids)
+    ):
+        raise ValueError(
+            "Analyzed production candidates must have "
+            "unique assessment IDs."
+        )
+
+    for candidate in candidates:
+        if (
+            candidate.mandate_id
+            != mandate.mandate_id
+        ):
+            raise ValueError(
+                f"{candidate.label}: candidate mandate "
+                "does not match construction mandate."
+            )
+
+        if (
+            abs(
+                candidate.position_size_eur
+                - mandate.treasury_capital_eur
+            )
+            > 0.01
+        ):
+            raise ValueError(
+                f"{candidate.label}: production candidate "
+                "was not analyzed at the exact treasury "
+                "capital size."
+            )
+
+    eligible = tuple(
+        candidate
+        for candidate in candidates
+        if (
+            candidate.recommendation_ready
+            and candidate.defensible_return_pct
+            is not None
+        )
+    )
+
+    if not eligible:
+        construction = (
+            build_portfolio_construction(
+                construction_id=construction_id,
+                mandate=mandate,
+                candidates=candidates,
+                instructions=(),
+                notes=(
+                    notes
+                    or (
+                        "No recommendation-ready production "
+                        "candidate exists at the exact "
+                        "treasury allocation size."
+                    )
+                ),
+            )
+        )
+
+        return (
+            construction,
+            candidates,
+        )
+
+    selected = max(
+        eligible,
+        key=lambda candidate: (
+            candidate.defensible_return_pct,
+            candidate.assessment_id,
+        ),
+    )
+
+    construction = (
+        build_portfolio_construction(
+            construction_id=construction_id,
+            mandate=mandate,
+            candidates=candidates,
+            instructions=(
+                AllocationInstruction(
+                    candidate_assessment_id=(
+                        selected.assessment_id
+                    ),
+                    allocation_eur=(
+                        selected.position_size_eur
+                    ),
+                ),
+            ),
+            notes=(
+                notes
+                or (
+                    "Production single-position "
+                    "construction uses the exact "
+                    "freshness-gated universe candidate "
+                    "assessments and selects the highest "
+                    "defensible return among "
+                    "recommendation-ready opportunities. "
+                    "No candidate is rebuilt through a "
+                    "separate production registry."
+                )
+            ),
+        )
+    )
+
+    return (
+        construction,
+        candidates,
+    )
