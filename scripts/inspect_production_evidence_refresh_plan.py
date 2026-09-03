@@ -18,10 +18,6 @@ EXPECTED_REFRESH_ITEMS = {
         "market_liquidity",
     ),
     (
-        "fr_btf_2027_03_10",
-        "market_return",
-    ),
-    (
         "de_bubill_2027_07_14",
         "market_return",
     ),
@@ -142,15 +138,15 @@ def main() -> None:
         == EXPECTED_REFRESH_ITEMS
     )
 
-    assert plan.actionable_count == 6
-    assert plan.refresh_count == 6
+    assert plan.actionable_count == 5
+    assert plan.refresh_count == 5
 
     assert (
         plan.establish_provenance_count
         == 0
     )
 
-    assert plan.stale_count == 6
+    assert plan.stale_count == 5
     assert plan.future_dated_count == 0
     assert plan.undated_count == 0
 

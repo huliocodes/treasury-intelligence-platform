@@ -14,12 +14,15 @@ from treasury_intelligence.policies.evidence_refresh_capabilities import (
 
 AS_OF = "2026-09-03"
 
-EXPECTED_SOURCE_REFERENCES = {
+EXPECTED_ACTIONABLE_SOURCE_REFERENCES = {
     "de_bubill_2027_07_14_auction_2026-08-24",
     "de_bubill_2027_08_18_auction_2026-08-17",
     "ernx_xetra_2026_08_21_market_activity",
-    "fr_btf_2027_03_10_auction_2026-08-24",
 }
+
+REFRESHED_AFT_SOURCE_REFERENCE = (
+    "fr_btf_2027_03_10_auction_2026-08-31"
+)
 
 
 def main() -> None:
@@ -84,10 +87,10 @@ def main() -> None:
     print("-" * 100)
     print()
 
-    assert len(plan.items) == 6
+    assert len(plan.items) == 5
 
     assert unique_sources == (
-        EXPECTED_SOURCE_REFERENCES
+        EXPECTED_ACTIONABLE_SOURCE_REFERENCES
     )
 
     assert len(
@@ -106,7 +109,7 @@ def main() -> None:
     )
 
     for source_reference in (
-        EXPECTED_SOURCE_REFERENCES
+        EXPECTED_ACTIONABLE_SOURCE_REFERENCES
     ):
         assessment = (
             get_model_company_refresh_capability(
@@ -117,6 +120,29 @@ def main() -> None:
         assert assessment is not None
         assert assessment.capability == "manual"
         assert assessment.adapter_reference is None
+
+    refreshed_aft_assessment = (
+        get_model_company_refresh_capability(
+            source_reference=(
+                REFRESHED_AFT_SOURCE_REFERENCE
+            ),
+        )
+    )
+
+    assert refreshed_aft_assessment is not None
+    assert (
+        refreshed_aft_assessment.capability
+        == "manual"
+    )
+    assert (
+        refreshed_aft_assessment.adapter_reference
+        is None
+    )
+
+    assert (
+        REFRESHED_AFT_SOURCE_REFERENCE
+        not in unique_sources
+    )
 
     assert (
         get_model_company_refresh_capability(
@@ -161,16 +187,16 @@ def main() -> None:
         "Production refresh plan reused:           yes"
     )
     print(
-        "All six work items classified:           yes"
+        "All five work items classified:          yes"
     )
     print(
-        "Four underlying source observations:      yes"
+        "Three stale source observations:          yes"
     )
     print(
         "Exact production source references used:  yes"
     )
     print(
-        "AFT correctly classified manual:         yes"
+        "Refreshed AFT source remains manual:      yes"
     )
     print(
         "German auction evidence manual:          yes"

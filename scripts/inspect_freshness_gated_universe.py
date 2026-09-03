@@ -86,20 +86,23 @@ def main() -> None:
                     f"  - {requirement}"
                 )
 
-    assert len(ready) == 1
-    assert len(needs_evidence) == 8
+    assert len(ready) == 2
+    assert len(needs_evidence) == 7
     assert len(blocked) == 5
 
-    assert ready[0].label == (
-        "French BTF Aug 2027"
-    )
+    ready_labels = {
+        candidate.label
+        for candidate in ready
+    }
+
+    assert ready_labels == {
+        "French BTF Mar 2027",
+        "French BTF Aug 2027",
+    }
 
     expected_stale_types = {
         "ERNX": (
             "market_liquidity",
-        ),
-        "French BTF Mar 2027": (
-            "market_return",
         ),
         "German Bubill Jul 2027": (
             "market_return",
@@ -137,6 +140,20 @@ def main() -> None:
                 in refresh_requirements
             )
 
+    btf_mar = candidate_map[
+        "French BTF Mar 2027"
+    ]
+
+    assert btf_mar.recommendation_ready
+
+    assert not any(
+        requirement.startswith(
+            "Refresh required:"
+        )
+        for requirement
+        in btf_mar.evidence_requirements
+    )
+
     btf_aug = candidate_map[
         "French BTF Aug 2027"
     ]
@@ -153,8 +170,9 @@ def main() -> None:
 
     print()
     print(
-        "Freshness-valid winner: "
-        f"{btf_aug.label}"
+        "Freshness-valid candidates: "
+        "French BTF Mar 2027, "
+        "French BTF Aug 2027"
     )
     print()
     print(

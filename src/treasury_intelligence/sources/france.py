@@ -124,37 +124,42 @@ BTF_2027_08_11_ACCESSIBILITY = Accessibility(
 def get_btf_2027_03_10_snapshot() -> OpportunitySnapshot:
     return OpportunitySnapshot(
         snapshot_id=(
-            "fr_btf_2027_03_10_auction_2026-08-24"
+            "fr_btf_2027_03_10_auction_2026-08-31"
         ),
         instrument_id=BTF_2027_03_10.instrument_id,
         market_id=BTF_2027_03_10_MARKET.market_id,
         access_route_id=(
             BTF_2027_03_10_IBKR_ACCESS.access_route_id
         ),
-        observed_date="2026-08-24",
+        observed_date="2026-08-31",
         yield_measure="auction_weighted_average_rate",
-        yield_value_pct=2.675,
+        yield_value_pct=2.697,
         yield_basis=(
-            "Weighted-average rate from the latest "
-            "completed Agence France Trésor auction. "
-            "This is not a current secondary-market "
-            "executable yield."
+            "Weighted-average rate from the 31 August "
+            "2026 Agence France Trésor reopening. AFT "
+            "reports EUR 1.696 billion served in that "
+            "auction. This is published primary-market "
+            "evidence rather than a firm secondary-"
+            "market executable yield."
         ),
-        outstanding_amount_eur=2_323_000_000.0,
+        outstanding_amount_eur=4_019_000_000.0,
         price_status="published",
         quote_firmness="indicative",
         early_exit_possible=True,
         source="Agence France Trésor",
         source_url=(
-            "https://www.aft.gouv.fr/en/titre/"
+            "https://www.aft.gouv.fr/fr/titre/"
             "fr0129704153"
         ),
         notes=(
-            "Zero-coupon EUR French Treasury bill. "
-            "Redeemed at par at maturity. Secondary "
-            "market exit is possible before maturity, "
-            "but price, spread and market impact must "
-            "be evaluated using a live broker quote."
+            "Zero-coupon EUR French Treasury bill "
+            "redeemed at par on 10 March 2027. AFT "
+            "reports EUR 4.019 billion outstanding "
+            "after the 31 August 2026 reopening. "
+            "Secondary-market exit is possible before "
+            "maturity, but price, spread and market "
+            "impact still require execution-stage "
+            "broker evidence."
         ),
     )
 

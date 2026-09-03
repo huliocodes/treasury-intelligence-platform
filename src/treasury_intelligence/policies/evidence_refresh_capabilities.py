@@ -20,7 +20,7 @@ MODEL_COMPANY_EVIDENCE_REFRESH_CAPABILITIES = (
     ),
     EvidenceRefreshCapabilityAssessment(
         source_reference=(
-            "fr_btf_2027_03_10_auction_2026-08-24"
+            "fr_btf_2027_03_10_auction_2026-08-31"
         ),
         capability="manual",
         notes=(
