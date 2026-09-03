@@ -12,6 +12,7 @@ from treasury_intelligence.models.cash_baselines import (
 
 def build_model_company_cash_baseline(
     as_of: str,
+    total_cash_eur: float | None = None,
     balances: tuple[CashBalance, ...] | None = None,
 ) -> CashBaseline:
     if not as_of:
@@ -24,45 +25,69 @@ def build_model_company_cash_baseline(
         MODEL_COMPANY_MANDATE.treasury_capital_eur
     )
 
-    if balances is None:
-        balances = (
-            CashBalance(
-                balance_id=(
-                    "model_company_unresolved_"
-                    "corporate_cash"
-                ),
-                label="Unresolved corporate cash",
-                balance_type="other_cash",
-                balance_eur=treasury_capital_eur,
-                annual_return_pct=None,
-                return_evidence_available=False,
-                institution=None,
-                source_reference=None,
-                notes=(
-                    "Verified account-level cash "
-                    "evidence has not yet been supplied. "
-                    "The balance is represented without "
-                    "inventing a bank, account type, or "
-                    "cash return."
-                ),
-            ),
+    if total_cash_eur is None:
+        total_cash_eur = treasury_capital_eur
+
+    if total_cash_eur < 0:
+        raise ValueError(
+            "Model-company cash baseline cannot contain "
+            "negative cash."
         )
 
-    total_cash_eur = sum(
+    if (
+        total_cash_eur
+        - treasury_capital_eur
+        > 0.01
+    ):
+        raise ValueError(
+            "Model-company cash baseline cannot exceed "
+            "mandate treasury capital."
+        )
+
+    if balances is None:
+        if total_cash_eur == 0:
+            balances = ()
+
+        else:
+            balances = (
+                CashBalance(
+                    balance_id=(
+                        "model_company_unresolved_"
+                        "corporate_cash"
+                    ),
+                    label="Unresolved corporate cash",
+                    balance_type="other_cash",
+                    balance_eur=total_cash_eur,
+                    annual_return_pct=None,
+                    return_evidence_available=False,
+                    institution=None,
+                    source_reference=None,
+                    notes=(
+                        "Verified account-level cash "
+                        "evidence has not yet been supplied. "
+                        "The current unallocated treasury "
+                        "balance is represented without "
+                        "inventing a bank, account type, or "
+                        "cash return."
+                    ),
+                ),
+            )
+
+    supplied_balance_total_eur = sum(
         balance.balance_eur
         for balance in balances
     )
 
     if (
         abs(
-            total_cash_eur
-            - treasury_capital_eur
+            supplied_balance_total_eur
+            - total_cash_eur
         )
         > 0.01
     ):
         raise ValueError(
-            "Model-company cash balances must "
-            "reconcile exactly to treasury capital."
+            "Model-company cash balances must reconcile "
+            "exactly to the requested current cash total."
         )
 
     return CashBaseline(
@@ -77,9 +102,10 @@ def build_model_company_cash_baseline(
         total_cash_eur=total_cash_eur,
         balances=balances,
         notes=(
-            "Current model-company corporate cash "
-            "baseline. Supplied balances are treated "
-            "as treasury-state inputs rather than "
-            "market opportunities."
+            "Current model-company unallocated corporate "
+            "cash baseline. The baseline represents the "
+            "cash portion of the current treasury state, "
+            "which may be all, part, or none of mandate "
+            "treasury capital."
         ),
     )

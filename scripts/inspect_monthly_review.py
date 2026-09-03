@@ -171,6 +171,9 @@ def main() -> None:
     cash_baseline = (
         build_model_company_cash_baseline(
             as_of=AS_OF,
+            total_cash_eur=(
+                state.unallocated_capital_eur
+            ),
         )
     )
 
