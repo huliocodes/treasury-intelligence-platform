@@ -1308,185 +1308,202 @@ def _build_aave_candidate_builder() -> CandidateBuilder:
     return build_candidate
 
 
+def build_model_company_freshness_dependencies(
+    *,
+    instrument_id: str,
+):
+    if instrument_id == ERNX_INSTRUMENT.instrument_id:
+        return build_opportunity_freshness_dependencies(
+            snapshot=get_ernx_snapshot(),
+            market_observation=(
+                get_ernx_market_observation()
+            ),
+            accessibility=ERNX_ACCESSIBILITY,
+            risk_assessments=(
+                get_ernx_risk_assessments()
+            ),
+            accessibility_source_reference=(
+                "ernx_xetra_ibkr_accessibility"
+            ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
+            cost_source_reference=(
+                "ibkr_germany_etf_cost_package"
+            ),
+            cost_observed_date=min(
+                IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                .evidence_date,
+                IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                .evidence_date,
+            ),
+        )
+
+    if instrument_id == BTF_2027_03_10.instrument_id:
+        return build_opportunity_freshness_dependencies(
+            snapshot=(
+                get_btf_2027_03_10_snapshot()
+            ),
+            market_observation=(
+                get_btf_2027_03_10_market_observation()
+            ),
+            accessibility=(
+                BTF_2027_03_10_ACCESSIBILITY
+            ),
+            risk_assessments=(
+                get_btf_risk_assessments()
+            ),
+            accessibility_source_reference=(
+                "fr_btf_2027_03_10_ibkr_accessibility"
+            ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
+            cost_source_reference=(
+                "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
+            ),
+        )
+
+    if instrument_id == BTF_2027_08_11.instrument_id:
+        return build_opportunity_freshness_dependencies(
+            snapshot=(
+                get_btf_2027_08_11_snapshot()
+            ),
+            market_observation=(
+                get_btf_2027_08_11_market_observation()
+            ),
+            accessibility=(
+                BTF_2027_08_11_ACCESSIBILITY
+            ),
+            risk_assessments=(
+                get_btf_2027_08_11_risk_assessments()
+            ),
+            accessibility_source_reference=(
+                "fr_btf_2027_08_11_ibkr_accessibility"
+            ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
+            cost_source_reference=(
+                "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
+            ),
+        )
+
+    if instrument_id == BUBILL_2027_07_14.instrument_id:
+        return build_opportunity_freshness_dependencies(
+            snapshot=(
+                get_bubill_2027_07_14_snapshot()
+            ),
+            market_observation=(
+                get_bubill_2027_07_14_market_observation()
+            ),
+            accessibility=(
+                BUBILL_2027_07_14_ACCESSIBILITY
+            ),
+            risk_assessments=(
+                get_bubill_risk_assessments()
+            ),
+            accessibility_source_reference=(
+                "de_bubill_2027_07_14_ibkr_accessibility"
+            ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
+            cost_source_reference=(
+                "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
+            ),
+        )
+
+    if instrument_id == BUBILL_2027_08_18.instrument_id:
+        return build_opportunity_freshness_dependencies(
+            snapshot=(
+                get_bubill_2027_08_18_snapshot()
+            ),
+            market_observation=(
+                get_bubill_2027_08_18_market_observation()
+            ),
+            accessibility=(
+                BUBILL_2027_08_18_ACCESSIBILITY
+            ),
+            risk_assessments=(
+                get_bubill_2027_08_18_risk_assessments()
+            ),
+            accessibility_source_reference=(
+                "de_bubill_2027_08_18_ibkr_accessibility"
+            ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
+            cost_source_reference=(
+                "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
+            ),
+        )
+
+    return None
+
+
+def build_model_company_freshness_dependency_sets():
+    instrument_ids = (
+        ERNX_INSTRUMENT.instrument_id,
+        BTF_2027_03_10.instrument_id,
+        BTF_2027_08_11.instrument_id,
+        BUBILL_2027_07_14.instrument_id,
+        BUBILL_2027_08_18.instrument_id,
+    )
+
+    dependency_sets = tuple(
+        dependency_set
+        for dependency_set in (
+            build_model_company_freshness_dependencies(
+                instrument_id=instrument_id,
+            )
+            for instrument_id in instrument_ids
+        )
+        if dependency_set is not None
+    )
+
+    if len(dependency_sets) != len(instrument_ids):
+        raise ValueError(
+            "Model-company freshness dependency registry "
+            "is incomplete."
+        )
+
+    return dependency_sets
+
+
 def _apply_model_company_freshness_gate(
     *,
     candidate: PortfolioCandidateAssessment,
     as_of: str,
 ) -> PortfolioCandidateAssessment:
-    if (
-        candidate.instrument_id
-        == ERNX_INSTRUMENT.instrument_id
-    ):
-        dependencies = (
-            build_opportunity_freshness_dependencies(
-                snapshot=get_ernx_snapshot(),
-                market_observation=(
-                    get_ernx_market_observation()
-                ),
-                accessibility=ERNX_ACCESSIBILITY,
-                risk_assessments=(
-                    get_ernx_risk_assessments()
-                ),
-                accessibility_source_reference=(
-                    "ernx_xetra_ibkr_accessibility"
-                ),
-                accessibility_observed_date=(
-                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
-                    .evidence_date
-                ),
-                cost_source_reference=(
-                    "ibkr_germany_etf_cost_package"
-                ),
-                cost_observed_date=min(
-                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
-                    .evidence_date,
-                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
-                    .evidence_date,
-                ),
-            )
+    dependencies = (
+        build_model_company_freshness_dependencies(
+            instrument_id=candidate.instrument_id,
         )
+    )
 
-    elif (
-        candidate.instrument_id
-        == BTF_2027_03_10.instrument_id
-    ):
-        dependencies = (
-            build_opportunity_freshness_dependencies(
-                snapshot=(
-                    get_btf_2027_03_10_snapshot()
-                ),
-                market_observation=(
-                    get_btf_2027_03_10_market_observation()
-                ),
-                accessibility=(
-                    BTF_2027_03_10_ACCESSIBILITY
-                ),
-                risk_assessments=(
-                    get_btf_risk_assessments()
-                ),
-                accessibility_source_reference=(
-                    "fr_btf_2027_03_10_ibkr_accessibility"
-                ),
-                accessibility_observed_date=(
-                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
-                    .evidence_date
-                ),
-                cost_source_reference=(
-                    "ibkr_europe_otc_bond_cost_package"
-                ),
-                cost_observed_date=(
-                    IBKR_EUROPE_OTC_BOND_EVIDENCE
-                    .evidence_date
-                ),
-            )
-        )
-
-    elif (
-        candidate.instrument_id
-        == BTF_2027_08_11.instrument_id
-    ):
-        dependencies = (
-            build_opportunity_freshness_dependencies(
-                snapshot=(
-                    get_btf_2027_08_11_snapshot()
-                ),
-                market_observation=(
-                    get_btf_2027_08_11_market_observation()
-                ),
-                accessibility=(
-                    BTF_2027_08_11_ACCESSIBILITY
-                ),
-                risk_assessments=(
-                    get_btf_2027_08_11_risk_assessments()
-                ),
-                accessibility_source_reference=(
-                    "fr_btf_2027_08_11_ibkr_accessibility"
-                ),
-                accessibility_observed_date=(
-                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
-                    .evidence_date
-                ),
-                cost_source_reference=(
-                    "ibkr_europe_otc_bond_cost_package"
-                ),
-                cost_observed_date=(
-                    IBKR_EUROPE_OTC_BOND_EVIDENCE
-                    .evidence_date
-                ),
-            )
-        )
-
-    elif (
-        candidate.instrument_id
-        == BUBILL_2027_07_14.instrument_id
-    ):
-        dependencies = (
-            build_opportunity_freshness_dependencies(
-                snapshot=(
-                    get_bubill_2027_07_14_snapshot()
-                ),
-                market_observation=(
-                    get_bubill_2027_07_14_market_observation()
-                ),
-                accessibility=(
-                    BUBILL_2027_07_14_ACCESSIBILITY
-                ),
-                risk_assessments=(
-                    get_bubill_risk_assessments()
-                ),
-                accessibility_source_reference=(
-                    "de_bubill_2027_07_14_ibkr_accessibility"
-                ),
-                accessibility_observed_date=(
-                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
-                    .evidence_date
-                ),
-                cost_source_reference=(
-                    "ibkr_europe_otc_bond_cost_package"
-                ),
-                cost_observed_date=(
-                    IBKR_EUROPE_OTC_BOND_EVIDENCE
-                    .evidence_date
-                ),
-            )
-        )
-
-    elif (
-        candidate.instrument_id
-        == BUBILL_2027_08_18.instrument_id
-    ):
-        dependencies = (
-            build_opportunity_freshness_dependencies(
-                snapshot=(
-                    get_bubill_2027_08_18_snapshot()
-                ),
-                market_observation=(
-                    get_bubill_2027_08_18_market_observation()
-                ),
-                accessibility=(
-                    BUBILL_2027_08_18_ACCESSIBILITY
-                ),
-                risk_assessments=(
-                    get_bubill_2027_08_18_risk_assessments()
-                ),
-                accessibility_source_reference=(
-                    "de_bubill_2027_08_18_ibkr_accessibility"
-                ),
-                accessibility_observed_date=(
-                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
-                    .evidence_date
-                ),
-                cost_source_reference=(
-                    "ibkr_europe_otc_bond_cost_package"
-                ),
-                cost_observed_date=(
-                    IBKR_EUROPE_OTC_BOND_EVIDENCE
-                    .evidence_date
-                ),
-            )
-        )
-
-    else:
+    if dependencies is None:
         return candidate
 
     freshness_evidence_requirements = (
