@@ -41,6 +41,11 @@ class PortfolioCandidateAssessment:
 
     recommendation_ready: bool
 
+    embedded_one_time_cost_component_types: tuple[
+        str,
+        ...
+    ] = ()
+
     notes: str | None = None
 
     def __post_init__(self) -> None:
@@ -100,4 +105,16 @@ class PortfolioCandidateAssessment:
             raise ValueError(
                 "needs_evidence candidates require at least "
                 "one evidence requirement."
+            )
+
+        if len(
+            set(
+                self.embedded_one_time_cost_component_types
+            )
+        ) != len(
+            self.embedded_one_time_cost_component_types
+        ):
+            raise ValueError(
+                "Embedded one-time cost component types "
+                "must be unique."
             )

@@ -151,8 +151,8 @@ def _validate_entity_alignment(
         != market_id
     ):
         raise ValueError(
-            "Economics assessment market does not "
-            "match eligibility result."
+            "Economics assessment market does not match "
+            "eligibility result."
         )
 
     if (
@@ -359,6 +359,35 @@ def _defensible_return(
     )
 
 
+def _embedded_one_time_cost_component_types(
+    return_analysis: ReturnAnalysis,
+) -> tuple[str, ...]:
+    component_types = (
+        component.component_type
+        for component in return_analysis.components
+        if (
+            component.component_type
+            != "reference_yield"
+            and component.basis
+            in (
+                "position_bps",
+                "fixed_eur",
+            )
+            and component.status
+            not in (
+                "unknown",
+                "not_applicable",
+            )
+        )
+    )
+
+    return tuple(
+        dict.fromkeys(
+            component_types
+        )
+    )
+
+
 def build_integrated_portfolio_candidate(
     assessment_id: str,
     label: str,
@@ -523,6 +552,11 @@ def build_integrated_portfolio_candidate(
         ),
         recommendation_ready=(
             recommendation_ready
+        ),
+        embedded_one_time_cost_component_types=(
+            _embedded_one_time_cost_component_types(
+                return_analysis
+            )
         ),
         notes=notes,
     )

@@ -47,6 +47,7 @@ from treasury_intelligence.analytics.rebalance import (
 
 from treasury_intelligence.analytics.review_returns import (
     build_candidate_allocation_return_input,
+    build_candidate_embedded_switching_friction_input,
 )
 
 from treasury_intelligence.analytics.switching_friction import (
@@ -258,6 +259,49 @@ def main() -> None:
         )
     )
 
+    selected_candidate_map = {
+        (
+            candidate.instrument_id,
+            candidate.market_id,
+            candidate.access_route_id,
+        ): candidate
+        for candidate in selected_candidates
+    }
+
+    switching_friction_inputs = tuple(
+        build_candidate_embedded_switching_friction_input(
+            candidate=selected_candidate_map[
+                (
+                    line.instrument_id,
+                    line.market_id,
+                    line.access_route_id,
+                )
+            ],
+            action=line.action,
+            notes=(
+                "No additional switching cost is "
+                "charged where the selected production "
+                "candidate's defensible return already "
+                "embeds entry execution economics."
+            ),
+        )
+        for line in delta.delta_lines
+        if (
+            abs(line.delta_eur) > 0.01
+            and line.action
+            in (
+                "open",
+                "increase",
+            )
+            and (
+                line.instrument_id,
+                line.market_id,
+                line.access_route_id,
+            )
+            in selected_candidate_map
+        )
+    )
+
     switching_friction = (
         build_switching_friction_assessment(
             assessment_id=(
@@ -266,12 +310,15 @@ def main() -> None:
             ),
             delta=delta,
             economic_comparison=comparison,
-            friction_inputs=(),
+            friction_inputs=(
+                switching_friction_inputs
+            ),
             notes=(
-                "No switching-friction assumptions are "
-                "invented. Required evidence remains "
-                "explicit when capital movement is "
-                "proposed."
+                "Switching friction contains only "
+                "additional transition costs not already "
+                "embedded in the compared candidate "
+                "return. Missing provenance or separate "
+                "transition costs remain explicit."
             ),
         )
     )
@@ -344,8 +391,9 @@ def main() -> None:
                 mandate_surveillance
             ),
             notes=(
-                "Milestone 15B full-universe recurring "
-                "treasury review."
+                "Milestone 15D full-universe recurring "
+                "treasury review with transaction-cost "
+                "double-counting protection."
             ),
         )
     )
@@ -429,6 +477,17 @@ def main() -> None:
             f"  - {candidate.label}: "
             f"EUR {candidate.position_size_eur:,.0f} "
             f"at {return_text}"
+        )
+
+        print(
+            "    embedded one-time costs: "
+            + (
+                ", ".join(
+                    candidate
+                    .embedded_one_time_cost_component_types
+                )
+                or "none"
+            )
         )
 
     print()
@@ -528,6 +587,19 @@ def main() -> None:
         f"{switching_friction.friction_status}"
     )
 
+    if switching_friction.total_switching_cost_eur is None:
+        switching_cost_text = "UNKNOWN"
+    else:
+        switching_cost_text = (
+            f"EUR "
+            f"{switching_friction.total_switching_cost_eur:,.2f}"
+        )
+
+    print(
+        f"Additional switching cost:     "
+        f"{switching_cost_text}"
+    )
+
     print()
     print("MONTHLY REVIEW")
     print()
@@ -587,7 +659,7 @@ def main() -> None:
     print()
     print("-" * 100)
     print()
-    print("MILESTONE 15B ASSERTIONS")
+    print("MILESTONE 15D ASSERTIONS")
     print()
 
     assert len(universe_candidates) == 14
@@ -646,6 +718,31 @@ def main() -> None:
 
     assert comparison.proposed_annual_return_eur is not None
 
+    assert switching_friction_inputs
+
+    assert all(
+        friction_input.evidence_available
+        for friction_input in switching_friction_inputs
+    )
+
+    assert all(
+        friction_input.friction_bps == 0.0
+        and friction_input.fixed_cost_eur == 0.0
+        for friction_input in switching_friction_inputs
+    )
+
+    assert (
+        switching_friction.friction_status
+        == "complete"
+    )
+
+    assert (
+        switching_friction.total_switching_cost_eur
+        == 0.0
+    )
+
+    assert not switching_friction.missing_evidence
+
     assert (
         mandate_surveillance.status
         == "compliant"
@@ -687,6 +784,18 @@ def main() -> None:
     )
 
     print(
+        "Return-cost provenance preserved:      yes"
+    )
+
+    print(
+        "Double-counting protection active:     yes"
+    )
+
+    print(
+        "Additional switching friction known:   yes"
+    )
+
+    print(
         "Unknown cash economics preserved:      yes"
     )
 
@@ -705,8 +814,8 @@ def main() -> None:
     print()
 
     print(
-        "All Milestone 15B full-universe "
-        "recurring-review assertions passed."
+        "All Milestone 15D cost-inclusion "
+        "provenance assertions passed."
     )
 
 
