@@ -50,6 +50,16 @@ from treasury_intelligence.sources.ishares import (
     get_ernx_snapshot,
 )
 
+from treasury_intelligence.sources.ibkr import (
+    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE,
+    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE,
+    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE,
+)
+
+from treasury_intelligence.sources.ibkr_fixed_income import (
+    IBKR_EUROPE_OTC_BOND_EVIDENCE,
+)
+
 
 AS_OF = "2026-09-03"
 
@@ -126,8 +136,20 @@ def main() -> None:
             accessibility_source_reference=(
                 "ernx_xetra_ibkr_accessibility"
             ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
             cost_source_reference=(
                 "ibkr_germany_etf_cost_package"
+            ),
+            cost_observed_date=(
+                min(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                    .evidence_date,
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                    .evidence_date,
+                )
             ),
         )
     )
@@ -147,8 +169,16 @@ def main() -> None:
             accessibility_source_reference=(
                 "fr_btf_2027_03_10_ibkr_accessibility"
             ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
             cost_source_reference=(
                 "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
             ),
         )
     )
@@ -168,8 +198,16 @@ def main() -> None:
             accessibility_source_reference=(
                 "fr_btf_2027_08_11_ibkr_accessibility"
             ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
             cost_source_reference=(
                 "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
             ),
         )
     )
@@ -191,8 +229,16 @@ def main() -> None:
             accessibility_source_reference=(
                 "de_bubill_2027_07_14_ibkr_accessibility"
             ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
             cost_source_reference=(
                 "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
             ),
         )
     )
@@ -214,8 +260,16 @@ def main() -> None:
             accessibility_source_reference=(
                 "de_bubill_2027_08_18_ibkr_accessibility"
             ),
+            accessibility_observed_date=(
+                IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                .evidence_date
+            ),
             cost_source_reference=(
                 "ibkr_europe_otc_bond_cost_package"
+            ),
+            cost_observed_date=(
+                IBKR_EUROPE_OTC_BOND_EVIDENCE
+                .evidence_date
             ),
         )
     )
@@ -249,40 +303,40 @@ def main() -> None:
         "market_return": "fresh",
         "market_liquidity": "stale",
         "risk": "fresh",
-        "accessibility": "undated",
-        "cost": "undated",
+        "accessibility": "fresh",
+        "cost": "fresh",
     }
 
     assert btf_mar_statuses == {
         "market_return": "stale",
         "market_liquidity": "fresh",
         "risk": "fresh",
-        "accessibility": "undated",
-        "cost": "undated",
+        "accessibility": "fresh",
+        "cost": "fresh",
     }
 
     assert btf_aug_statuses == {
         "market_return": "fresh",
         "market_liquidity": "fresh",
         "risk": "fresh",
-        "accessibility": "undated",
-        "cost": "undated",
+        "accessibility": "fresh",
+        "cost": "fresh",
     }
 
     assert bubill_jul_statuses == {
         "market_return": "stale",
         "market_liquidity": "stale",
         "risk": "fresh",
-        "accessibility": "undated",
-        "cost": "undated",
+        "accessibility": "fresh",
+        "cost": "fresh",
     }
 
     assert bubill_aug_statuses == {
         "market_return": "stale",
         "market_liquidity": "stale",
         "risk": "fresh",
-        "accessibility": "undated",
-        "cost": "undated",
+        "accessibility": "fresh",
+        "cost": "fresh",
     }
 
     for dependency_set in (
@@ -300,14 +354,10 @@ def main() -> None:
             dependency_set.required_dependencies
         ) == 5
 
-        assert tuple(
-            dependency.evidence_type
-            for dependency
-            in dependency_set
+        assert (
+            dependency_set
             .undated_required_dependencies
-        ) == (
-            "accessibility",
-            "cost",
+            == ()
         )
 
     print("-" * 100)
@@ -324,10 +374,10 @@ def main() -> None:
         "Risk dependency mapped from assessments:     yes"
     )
     print(
-        "Accessibility undated provenance preserved:  yes"
+        "Accessibility dated provenance connected:    yes"
     )
     print(
-        "Cost undated provenance preserved:           yes"
+        "Cost dated provenance connected:             yes"
     )
     print(
         "No fabricated evidence dates introduced:     yes"

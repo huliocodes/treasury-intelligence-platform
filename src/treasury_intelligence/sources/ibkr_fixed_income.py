@@ -18,6 +18,7 @@ class EuropeOtcBondCommissionEvidence:
 
     recurring_access_cost_pct: float
 
+    evidence_date: str
     source_references: tuple[str, ...]
     notes: str | None = None
 
@@ -31,6 +32,7 @@ IBKR_EUROPE_OTC_BOND_EVIDENCE = (
         first_tier_commission_bps=10.0,
         additional_commission_bps=2.5,
         recurring_access_cost_pct=0.0,
+        evidence_date=IBKR_FIXED_INCOME_SOURCE_CHECKED_ON,
         source_references=(
             "https://www.interactivebrokers.com/"
             "en/pricing/commissions-bonds.php",

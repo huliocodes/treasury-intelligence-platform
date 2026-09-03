@@ -70,12 +70,16 @@ def build_construction(
     )
 
 
+AS_OF = "2026-09-03"
+
+
 universe_candidates = (
     analyze_opportunity_universe_at_position_size(
         position_size_eur=(
             MODEL_COMPANY_MANDATE.treasury_capital_eur
         ),
         mandate=MODEL_COMPANY_MANDATE,
+        as_of=AS_OF,
     )
 )
 

@@ -95,6 +95,7 @@ def main() -> None:
                 treasury_capital_eur
             ),
             mandate=MODEL_COMPANY_MANDATE,
+            as_of=AS_OF,
         )
     )
 

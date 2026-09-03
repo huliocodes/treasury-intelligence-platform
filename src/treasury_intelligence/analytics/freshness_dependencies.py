@@ -15,6 +15,18 @@ from treasury_intelligence.models.risk_assessments import (
     RiskAssessment,
 )
 
+from treasury_intelligence.analytics.freshness import (
+    assess_evidence_freshness,
+)
+
+from treasury_intelligence.models.freshness import (
+    EvidenceFreshnessRequirement,
+)
+
+from treasury_intelligence.models.portfolio import (
+    PortfolioCandidateAssessment,
+)
+
 
 def _validate_alignment(
     *,
@@ -118,7 +130,9 @@ def build_opportunity_freshness_dependencies(
         ...
     ],
     accessibility_source_reference: str,
+    accessibility_observed_date: str | None,
     cost_source_reference: str,
+    cost_observed_date: str | None,
 ) -> OpportunityFreshnessDependencies:
     _validate_alignment(
         snapshot=snapshot,
@@ -212,14 +226,16 @@ def build_opportunity_freshness_dependencies(
             source_reference=(
                 accessibility_source_reference
             ),
-            observed_date=None,
+            observed_date=(
+                accessibility_observed_date
+            ),
             required_for_recommendation=True,
             notes=(
-                "Current normalized Accessibility objects "
-                "do not carry an evidence observation "
-                "date. V1 must preserve this as undated "
-                "rather than borrowing a market or "
-                "snapshot date."
+                "Accessibility freshness follows the "
+                "dated provenance supporting the "
+                "normalized corporate-access conclusion. "
+                "If that provenance has no date, the "
+                "dependency remains explicitly undated."
             ),
         ),
         EvidenceFreshnessDependency(
@@ -231,15 +247,14 @@ def build_opportunity_freshness_dependencies(
             access_route_id=access_route_id,
             evidence_type="cost",
             source_reference=cost_source_reference,
-            observed_date=None,
+            observed_date=cost_observed_date,
             required_for_recommendation=True,
             notes=(
-                "Current production access/trading-cost "
-                "evidence used by these candidates does "
-                "not expose a generic evidence date at "
-                "the candidate boundary. V1 therefore "
-                "classifies cost freshness as undated "
-                "until dated provenance is promoted."
+                "Cost freshness follows the dated "
+                "broker or route evidence actually used "
+                "by the return analysis. If the source "
+                "does not expose a date, the dependency "
+                "remains explicitly undated."
             ),
         ),
     )
@@ -249,4 +264,164 @@ def build_opportunity_freshness_dependencies(
         market_id=market_id,
         access_route_id=access_route_id,
         dependencies=dependencies,
+    )
+
+
+
+def build_freshness_evidence_requirements(
+    *,
+    dependencies: OpportunityFreshnessDependencies,
+    requirements: tuple[
+        EvidenceFreshnessRequirement,
+        ...
+    ],
+    as_of: str,
+) -> tuple[str, ...]:
+    requirement_map = {
+        requirement.evidence_type: requirement
+        for requirement in requirements
+    }
+
+    evidence_requirements = []
+
+    for dependency in dependencies.required_dependencies:
+        requirement = requirement_map.get(
+            dependency.evidence_type
+        )
+
+        if requirement is None:
+            raise ValueError(
+                "No freshness requirement supplied for "
+                f"evidence type '{dependency.evidence_type}'."
+            )
+
+        if dependency.observed_date is None:
+            evidence_requirements.append(
+                "Refresh required: "
+                f"{dependency.evidence_type} evidence "
+                f"for {dependency.instrument_id} is "
+                "required for recommendation but has "
+                "no dated provenance."
+            )
+            continue
+
+        assessment = assess_evidence_freshness(
+            requirement=requirement,
+            observed_date=dependency.observed_date,
+            as_of=as_of,
+        )
+
+        if assessment.usable:
+            continue
+
+        if assessment.status == "stale":
+            evidence_requirements.append(
+                "Refresh required: "
+                f"{dependency.evidence_type} evidence "
+                f"for {dependency.instrument_id} was "
+                f"observed {dependency.observed_date}, "
+                f"is {assessment.age_days} days old as "
+                f"of {as_of}, and exceeds the "
+                f"{assessment.maximum_age_days}-day "
+                "freshness limit."
+            )
+        elif assessment.status == "future_dated":
+            evidence_requirements.append(
+                "Refresh required: "
+                f"{dependency.evidence_type} evidence "
+                f"for {dependency.instrument_id} is "
+                f"future-dated {dependency.observed_date} "
+                f"relative to review date {as_of}."
+            )
+        else:
+            raise ValueError(
+                "Unsupported freshness status: "
+                f"{assessment.status}"
+            )
+
+    return tuple(
+        dict.fromkeys(
+            evidence_requirements
+        )
+    )
+
+
+
+def apply_freshness_evidence_requirements(
+    *,
+    candidate: PortfolioCandidateAssessment,
+    freshness_evidence_requirements: tuple[
+        str,
+        ...
+    ],
+) -> PortfolioCandidateAssessment:
+    if not freshness_evidence_requirements:
+        return candidate
+
+    evidence_requirements = tuple(
+        dict.fromkeys(
+            (
+                *candidate.evidence_requirements,
+                *freshness_evidence_requirements,
+            )
+        )
+    )
+
+    if candidate.blocking_reasons:
+        candidate_status = "blocked"
+        recommendation_ready = False
+
+    elif evidence_requirements:
+        candidate_status = "needs_evidence"
+        recommendation_ready = False
+
+    else:
+        candidate_status = (
+            "recommendation_ready"
+        )
+        recommendation_ready = True
+
+    return PortfolioCandidateAssessment(
+        assessment_id=candidate.assessment_id,
+        mandate_id=candidate.mandate_id,
+        instrument_id=candidate.instrument_id,
+        market_id=candidate.market_id,
+        access_route_id=candidate.access_route_id,
+        label=candidate.label,
+        position_size_eur=(
+            candidate.position_size_eur
+        ),
+        eligibility_status=(
+            candidate.eligibility_status
+        ),
+        liquidity_position_status=(
+            candidate.liquidity_position_status
+        ),
+        economics_status=(
+            candidate.economics_status
+        ),
+        base_risk_unknown_dimension_count=(
+            candidate.base_risk_unknown_dimension_count
+        ),
+        defensible_return_pct=(
+            candidate.defensible_return_pct
+        ),
+        defensible_return_measure=(
+            candidate.defensible_return_measure
+        ),
+        candidate_status=candidate_status,
+        blocking_reasons=(
+            candidate.blocking_reasons
+        ),
+        evidence_requirements=(
+            evidence_requirements
+        ),
+        recommendation_ready=(
+            recommendation_ready
+        ),
+        embedded_one_time_cost_component_types=(
+            candidate
+            .embedded_one_time_cost_component_types
+        ),
+        notes=candidate.notes,
     )

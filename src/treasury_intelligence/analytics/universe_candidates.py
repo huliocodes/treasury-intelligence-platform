@@ -25,6 +25,12 @@ from treasury_intelligence.analytics.franklin_risk_assessments import (
     get_franklin_risk_assessments,
 )
 
+from treasury_intelligence.analytics.freshness_dependencies import (
+    apply_freshness_evidence_requirements,
+    build_freshness_evidence_requirements,
+    build_opportunity_freshness_dependencies,
+)
+
 from treasury_intelligence.analytics.generic_risk import (
     build_unknown_risk_assessments,
 )
@@ -70,6 +76,10 @@ from treasury_intelligence.analytics.universe import (
 
 from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
+)
+
+from treasury_intelligence.policies.freshness import (
+    MODEL_COMPANY_EVIDENCE_FRESHNESS_POLICY,
 )
 
 from treasury_intelligence.models.mandates import (
@@ -169,6 +179,7 @@ from treasury_intelligence.sources.germany import (
 from treasury_intelligence.sources.ibkr import (
     IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE,
     IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE,
+    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE,
 )
 
 from treasury_intelligence.sources.ibkr_fixed_income import (
@@ -1297,6 +1308,205 @@ def _build_aave_candidate_builder() -> CandidateBuilder:
     return build_candidate
 
 
+def _apply_model_company_freshness_gate(
+    *,
+    candidate: PortfolioCandidateAssessment,
+    as_of: str,
+) -> PortfolioCandidateAssessment:
+    if (
+        candidate.instrument_id
+        == ERNX_INSTRUMENT.instrument_id
+    ):
+        dependencies = (
+            build_opportunity_freshness_dependencies(
+                snapshot=get_ernx_snapshot(),
+                market_observation=(
+                    get_ernx_market_observation()
+                ),
+                accessibility=ERNX_ACCESSIBILITY,
+                risk_assessments=(
+                    get_ernx_risk_assessments()
+                ),
+                accessibility_source_reference=(
+                    "ernx_xetra_ibkr_accessibility"
+                ),
+                accessibility_observed_date=(
+                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                    .evidence_date
+                ),
+                cost_source_reference=(
+                    "ibkr_germany_etf_cost_package"
+                ),
+                cost_observed_date=min(
+                    IBKR_GERMANY_XETRA_ETF_RECURRING_ACCESS_COST_EVIDENCE
+                    .evidence_date,
+                    IBKR_GERMANY_FIXED_SMARTROUTING_EVIDENCE
+                    .evidence_date,
+                ),
+            )
+        )
+
+    elif (
+        candidate.instrument_id
+        == BTF_2027_03_10.instrument_id
+    ):
+        dependencies = (
+            build_opportunity_freshness_dependencies(
+                snapshot=(
+                    get_btf_2027_03_10_snapshot()
+                ),
+                market_observation=(
+                    get_btf_2027_03_10_market_observation()
+                ),
+                accessibility=(
+                    BTF_2027_03_10_ACCESSIBILITY
+                ),
+                risk_assessments=(
+                    get_btf_risk_assessments()
+                ),
+                accessibility_source_reference=(
+                    "fr_btf_2027_03_10_ibkr_accessibility"
+                ),
+                accessibility_observed_date=(
+                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                    .evidence_date
+                ),
+                cost_source_reference=(
+                    "ibkr_europe_otc_bond_cost_package"
+                ),
+                cost_observed_date=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                    .evidence_date
+                ),
+            )
+        )
+
+    elif (
+        candidate.instrument_id
+        == BTF_2027_08_11.instrument_id
+    ):
+        dependencies = (
+            build_opportunity_freshness_dependencies(
+                snapshot=(
+                    get_btf_2027_08_11_snapshot()
+                ),
+                market_observation=(
+                    get_btf_2027_08_11_market_observation()
+                ),
+                accessibility=(
+                    BTF_2027_08_11_ACCESSIBILITY
+                ),
+                risk_assessments=(
+                    get_btf_2027_08_11_risk_assessments()
+                ),
+                accessibility_source_reference=(
+                    "fr_btf_2027_08_11_ibkr_accessibility"
+                ),
+                accessibility_observed_date=(
+                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                    .evidence_date
+                ),
+                cost_source_reference=(
+                    "ibkr_europe_otc_bond_cost_package"
+                ),
+                cost_observed_date=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                    .evidence_date
+                ),
+            )
+        )
+
+    elif (
+        candidate.instrument_id
+        == BUBILL_2027_07_14.instrument_id
+    ):
+        dependencies = (
+            build_opportunity_freshness_dependencies(
+                snapshot=(
+                    get_bubill_2027_07_14_snapshot()
+                ),
+                market_observation=(
+                    get_bubill_2027_07_14_market_observation()
+                ),
+                accessibility=(
+                    BUBILL_2027_07_14_ACCESSIBILITY
+                ),
+                risk_assessments=(
+                    get_bubill_risk_assessments()
+                ),
+                accessibility_source_reference=(
+                    "de_bubill_2027_07_14_ibkr_accessibility"
+                ),
+                accessibility_observed_date=(
+                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                    .evidence_date
+                ),
+                cost_source_reference=(
+                    "ibkr_europe_otc_bond_cost_package"
+                ),
+                cost_observed_date=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                    .evidence_date
+                ),
+            )
+        )
+
+    elif (
+        candidate.instrument_id
+        == BUBILL_2027_08_18.instrument_id
+    ):
+        dependencies = (
+            build_opportunity_freshness_dependencies(
+                snapshot=(
+                    get_bubill_2027_08_18_snapshot()
+                ),
+                market_observation=(
+                    get_bubill_2027_08_18_market_observation()
+                ),
+                accessibility=(
+                    BUBILL_2027_08_18_ACCESSIBILITY
+                ),
+                risk_assessments=(
+                    get_bubill_2027_08_18_risk_assessments()
+                ),
+                accessibility_source_reference=(
+                    "de_bubill_2027_08_18_ibkr_accessibility"
+                ),
+                accessibility_observed_date=(
+                    IBKR_SLOVENIA_CORPORATE_ACCESS_EVIDENCE
+                    .evidence_date
+                ),
+                cost_source_reference=(
+                    "ibkr_europe_otc_bond_cost_package"
+                ),
+                cost_observed_date=(
+                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+                    .evidence_date
+                ),
+            )
+        )
+
+    else:
+        return candidate
+
+    freshness_evidence_requirements = (
+        build_freshness_evidence_requirements(
+            dependencies=dependencies,
+            requirements=(
+                MODEL_COMPANY_EVIDENCE_FRESHNESS_POLICY
+            ),
+            as_of=as_of,
+        )
+    )
+
+    return apply_freshness_evidence_requirements(
+        candidate=candidate,
+        freshness_evidence_requirements=(
+            freshness_evidence_requirements
+        ),
+    )
+
+
 def build_model_company_opportunity_universe(
     estr_observation: EstrObservation | None = None,
 ) -> tuple[
@@ -1435,6 +1645,7 @@ def analyze_opportunity_universe_at_position_size(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     estr_observation: EstrObservation | None = None,
+    as_of: str,
 ) -> tuple[
     PortfolioCandidateAssessment,
     ...
@@ -1450,10 +1661,18 @@ def analyze_opportunity_universe_at_position_size(
         )
     )
 
-    return tuple(
+    candidates = tuple(
         opportunity.candidate_builder(
             position_size_eur,
             mandate,
         )
         for opportunity in opportunities
+    )
+
+    return tuple(
+        _apply_model_company_freshness_gate(
+            candidate=candidate,
+            as_of=as_of,
+        )
+        for candidate in candidates
     )
