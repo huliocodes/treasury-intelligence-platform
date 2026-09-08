@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import os
 from datetime import datetime, time, timezone
+from zoneinfo import ZoneInfo
 
 import psycopg
 
@@ -30,7 +32,7 @@ from treasury_intelligence.sources.france import (
 )
 
 
-AS_OF = "2026-09-08"
+REPORT_TIMEZONE = "Europe/Ljubljana"
 
 REPORT_INSTRUMENT_IDS = (
     "fr_btf_2027_08_11",
@@ -76,7 +78,65 @@ def _format_annual_return(value: float | None) -> str:
     return f"EUR {value:,.0f}"
 
 
+def _default_as_of() -> str:
+    return datetime.now(
+        ZoneInfo(REPORT_TIMEZONE)
+    ).date().isoformat()
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build the daily treasury opportunity "
+            "report from the canonical production "
+            "candidate model."
+        )
+    )
+
+    parser.add_argument(
+        "--as-of",
+        default=None,
+        help=(
+            "Report date in YYYY-MM-DD format. "
+            "Defaults to today in Europe/Ljubljana."
+        ),
+    )
+
+    return parser.parse_args()
+
+
+def _resolve_as_of(
+    value: str | None,
+) -> str:
+    if value is None:
+        return _default_as_of()
+
+    try:
+        parsed = datetime.fromisoformat(
+            value
+        ).date()
+    except ValueError as exc:
+        raise ValueError(
+            "--as-of must use YYYY-MM-DD format."
+        ) from exc
+
+    normalized = parsed.isoformat()
+
+    if normalized != value:
+        raise ValueError(
+            "--as-of must use exact YYYY-MM-DD format."
+        )
+
+    return normalized
+
+
 def main() -> None:
+    args = _parse_args()
+
+    as_of = _resolve_as_of(
+        args.as_of
+    )
+
     database_url = os.environ.get(
         "DATABASE_URL"
     )
@@ -87,7 +147,7 @@ def main() -> None:
         )
 
     warehouse_as_of = datetime.combine(
-        datetime.fromisoformat(AS_OF).date(),
+        datetime.fromisoformat(as_of).date(),
         time.max,
         tzinfo=timezone.utc,
     )
@@ -132,7 +192,7 @@ def main() -> None:
             aave_observation=(
                 aave_observation
             ),
-            as_of=AS_OF,
+            as_of=as_of,
         )
     )
 
@@ -219,7 +279,7 @@ def main() -> None:
     print()
 
     print(
-        f"As of:                {AS_OF}"
+        f"As of:                {as_of}"
     )
     print(
         "Treasury capital:     "
