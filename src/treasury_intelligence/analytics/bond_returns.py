@@ -81,6 +81,86 @@ def calculate_tiered_otc_bond_commission_bps(
     )
 
 
+def apply_sovereign_bill_hold_to_maturity_economics(
+    *,
+    components: tuple[ReturnComponent, ...],
+    snapshot: OpportunitySnapshot,
+    estimated_roundtrip_slippage_bps: float,
+) -> tuple[ReturnComponent, ...]:
+    """Convert round-trip bond costs to a hold-to-maturity base case."""
+
+    if estimated_roundtrip_slippage_bps < 0:
+        raise ValueError(
+            "estimated_roundtrip_slippage_bps cannot be negative."
+        )
+
+    exit_component_id = (
+        f"{snapshot.snapshot_id}_exit_execution"
+    )
+
+    slippage_component_id = (
+        f"{snapshot.snapshot_id}_slippage"
+    )
+
+    entry_slippage_bps = (
+        estimated_roundtrip_slippage_bps
+        / 2
+    )
+
+    transformed: list[ReturnComponent] = []
+
+    for component in components:
+        if component.component_id == exit_component_id:
+            transformed.append(
+                replace(
+                    component,
+                    label=(
+                        "Secondary-market exit commission "
+                        "not assumed in hold-to-maturity base case"
+                    ),
+                    status="not_applicable",
+                    value=None,
+                    notes=(
+                        "The sovereign-bill base return assumes "
+                        "redemption at maturity rather than a "
+                        "secondary-market sale. Early sale remains "
+                        "possible and is evaluated separately by "
+                        "the liquidity analysis."
+                    ),
+                )
+            )
+            continue
+
+        if component.component_id == slippage_component_id:
+            transformed.append(
+                replace(
+                    component,
+                    label=(
+                        "Estimated entry spread, slippage, "
+                        "and market impact"
+                    ),
+                    status="estimated",
+                    basis="position_bps",
+                    value=entry_slippage_bps,
+                    source="Treasury Intelligence model",
+                    source_url=None,
+                    notes=(
+                        "Entry-side half of the conservative "
+                        f"{estimated_roundtrip_slippage_bps:.3f} bps "
+                        "round-trip execution estimate. The "
+                        "hold-to-maturity base case does not assume "
+                        "a secondary-market exit."
+                    ),
+                )
+            )
+            continue
+
+        transformed.append(component)
+
+    return tuple(transformed)
+
+
+
 def build_ibkr_europe_otc_bond_return_components(
     *,
     instrument: Instrument,

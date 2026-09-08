@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from treasury_intelligence.analytics.bond_returns import (
+    apply_sovereign_bill_hold_to_maturity_economics,
     build_ibkr_europe_otc_bond_return_components,
 )
 
@@ -872,15 +873,23 @@ def _build_french_btf_universe_candidate(
         ),
         risk_assessments=risk_assessments,
         return_component_builder=lambda size: (
-            build_ibkr_europe_otc_bond_return_components(
-                instrument=instrument,
-                market=market,
-                snapshot=snapshot,
-                position_size_eur=size,
-                reference_yield_includes_product_fee=None,
-                trading_cost_evidence=(
-                    IBKR_EUROPE_OTC_BOND_EVIDENCE
+            apply_sovereign_bill_hold_to_maturity_economics(
+                components=(
+                    build_ibkr_europe_otc_bond_return_components(
+                        instrument=instrument,
+                        market=market,
+                        snapshot=snapshot,
+                        position_size_eur=size,
+                        reference_yield_includes_product_fee=None,
+                        trading_cost_evidence=(
+                            IBKR_EUROPE_OTC_BOND_EVIDENCE
+                        ),
+                        estimated_roundtrip_slippage_bps=(
+                            SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
+                        ),
+                    )
                 ),
+                snapshot=snapshot,
                 estimated_roundtrip_slippage_bps=(
                     SOVEREIGN_BILL_STRONG_INFERRED_ROUNDTRIP_SLIPPAGE_BPS
                 ),
