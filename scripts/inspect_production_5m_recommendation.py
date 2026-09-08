@@ -41,6 +41,10 @@ from treasury_intelligence.persistence.opportunity_snapshots import (
     load_latest_opportunity_snapshot,
 )
 
+from treasury_intelligence.sources.aave import (
+    load_latest_aave_reserve_observation,
+)
+
 from treasury_intelligence.sources.ecb import (
     load_latest_estr_observation,
 )
@@ -85,6 +89,13 @@ def main() -> None:
             )
         )
 
+        aave_observation = (
+            load_latest_aave_reserve_observation(
+                connection=connection,
+                as_of=warehouse_as_of,
+            )
+        )
+
     universe_candidates = (
         analyze_opportunity_universe_at_position_size(
             position_size_eur=(
@@ -95,6 +106,7 @@ def main() -> None:
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),
+            aave_observation=aave_observation,
             as_of=AS_OF,
         )
     )

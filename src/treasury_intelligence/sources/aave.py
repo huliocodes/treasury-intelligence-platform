@@ -342,4 +342,297 @@ AAVE_V3_BASE_EURC_ACCESSIBILITY = Accessibility(
         "bank account operational and legal path has "
         "not yet been verified."
     ),
-)    
+)
+
+def _aave_observation_raw_payload(
+    observation: AaveReserveObservation,
+) -> dict[str, object]:
+    return {
+        "protocol": observation.protocol,
+        "version": observation.version,
+        "chain": observation.chain,
+        "asset": observation.asset,
+        "supply_apy_pct": str(
+            observation.supply_apy_pct
+        ),
+        "total_supplied": str(
+            observation.total_supplied
+        ),
+        "total_borrowed": str(
+            observation.total_borrowed
+        ),
+        "available_liquidity": str(
+            observation.available_liquidity
+        ),
+        "utilization_pct": str(
+            observation.utilization_pct
+        ),
+        "supply_cap": (
+            None
+            if observation.supply_cap is None
+            else str(observation.supply_cap)
+        ),
+        "observed_at": (
+            observation.observed_at.isoformat()
+        ),
+    }
+
+
+def build_aave_market_evidence_records(
+    *,
+    observation: AaveReserveObservation,
+    ingestion_run_id: str,
+):
+    """
+    Convert one coherent Aave reserve observation into
+    return and liquidity evidence records.
+
+    Both records retain the complete normalized reserve
+    payload and share the same observation timestamp.
+    """
+
+    from decimal import Decimal
+
+    from treasury_intelligence.persistence.market_evidence_store import (
+        MarketEvidenceRecord,
+    )
+
+    if not ingestion_run_id:
+        raise ValueError(
+            "ingestion_run_id is required."
+        )
+
+    if observation.observed_at.tzinfo is None:
+        raise ValueError(
+            "Aave observation timestamp must be "
+            "timezone-aware."
+        )
+
+    observation_key = (
+        observation.observed_at
+        .astimezone(timezone.utc)
+        .strftime("%Y%m%dT%H%M%SZ")
+    )
+
+    source_reference = (
+        "aave_v3_base_eurc_"
+        f"{observation_key}"
+    )
+
+    raw_payload = (
+        _aave_observation_raw_payload(
+            observation
+        )
+    )
+
+    common = {
+        "instrument_id": (
+            AAVE_V3_BASE_EURC_INSTRUMENT
+            .instrument_id
+        ),
+        "market_id": (
+            AAVE_V3_BASE_EURC_MARKET.market_id
+        ),
+        "access_route_id": (
+            AAVE_V3_BASE_EURC_DIRECT_ACCESS
+            .access_route_id
+        ),
+        "observed_at": observation.observed_at,
+        "source_reference": source_reference,
+        "source_name": (
+            "Aave V3 Base onchain reserve data"
+        ),
+        "source_url": BASE_RPC_URL,
+        "ingestion_run_id": ingestion_run_id,
+        "raw_payload": raw_payload,
+    }
+
+    return (
+        MarketEvidenceRecord(
+            evidence_id=(
+                "aave_v3_base_eurc_"
+                "protocol_supply_apy_"
+                f"{observation_key}"
+            ),
+            evidence_type="market_return",
+            measure="protocol_supply_apy",
+            numeric_value=Decimal(
+                str(observation.supply_apy_pct)
+            ),
+            unit="pct",
+            **common,
+        ),
+        MarketEvidenceRecord(
+            evidence_id=(
+                "aave_v3_base_eurc_"
+                "available_liquidity_"
+                f"{observation_key}"
+            ),
+            evidence_type="market_liquidity",
+            measure="available_liquidity",
+            numeric_value=Decimal(
+                str(
+                    observation.available_liquidity
+                )
+            ),
+            unit="EURC",
+            **common,
+        ),
+    )
+
+
+def load_latest_aave_reserve_observation(
+    *,
+    connection,
+    as_of: datetime,
+) -> AaveReserveObservation:
+    """
+    Reconstruct the latest coherent Aave reserve
+    observation from persisted warehouse evidence.
+    """
+
+    from treasury_intelligence.persistence.market_evidence_store import (
+        get_latest_market_evidence,
+    )
+
+    return_evidence = get_latest_market_evidence(
+        connection=connection,
+        instrument_id=(
+            AAVE_V3_BASE_EURC_INSTRUMENT
+            .instrument_id
+        ),
+        evidence_type="market_return",
+        as_of=as_of,
+    )
+
+    liquidity_evidence = (
+        get_latest_market_evidence(
+            connection=connection,
+            instrument_id=(
+                AAVE_V3_BASE_EURC_INSTRUMENT
+                .instrument_id
+            ),
+            evidence_type="market_liquidity",
+            as_of=as_of,
+        )
+    )
+
+    if return_evidence is None:
+        raise LookupError(
+            "No persisted Aave market-return "
+            "evidence exists as of the requested time."
+        )
+
+    if liquidity_evidence is None:
+        raise LookupError(
+            "No persisted Aave market-liquidity "
+            "evidence exists as of the requested time."
+        )
+
+    if (
+        return_evidence["measure"]
+        != "protocol_supply_apy"
+    ):
+        raise ValueError(
+            "Aave return evidence must use "
+            "measure='protocol_supply_apy'."
+        )
+
+    if (
+        liquidity_evidence["measure"]
+        != "available_liquidity"
+    ):
+        raise ValueError(
+            "Aave liquidity evidence must use "
+            "measure='available_liquidity'."
+        )
+
+    if return_evidence["unit"] != "pct":
+        raise ValueError(
+            "Aave supply APY unit must be 'pct'."
+        )
+
+    if liquidity_evidence["unit"] != "EURC":
+        raise ValueError(
+            "Aave available-liquidity unit must "
+            "be 'EURC'."
+        )
+
+    if (
+        return_evidence["observed_at"]
+        != liquidity_evidence["observed_at"]
+    ):
+        raise ValueError(
+            "Latest Aave return and liquidity "
+            "evidence do not originate from the same "
+            "reserve observation."
+        )
+
+    if (
+        return_evidence["source_reference"]
+        != liquidity_evidence["source_reference"]
+    ):
+        raise ValueError(
+            "Latest Aave return and liquidity "
+            "evidence have different source references."
+        )
+
+    payload = (
+        liquidity_evidence.get("raw_payload")
+        or {}
+    )
+
+    required_payload_fields = (
+        "protocol",
+        "version",
+        "chain",
+        "asset",
+        "total_supplied",
+        "total_borrowed",
+        "utilization_pct",
+        "supply_cap",
+    )
+
+    missing = [
+        field
+        for field in required_payload_fields
+        if field not in payload
+    ]
+
+    if missing:
+        raise ValueError(
+            "Aave warehouse payload missing fields: "
+            + ", ".join(missing)
+        )
+
+    supply_cap_raw = payload["supply_cap"]
+
+    return AaveReserveObservation(
+        protocol=str(payload["protocol"]),
+        version=str(payload["version"]),
+        chain=str(payload["chain"]),
+        asset=str(payload["asset"]),
+        supply_apy_pct=float(
+            return_evidence["numeric_value"]
+        ),
+        total_supplied=float(
+            payload["total_supplied"]
+        ),
+        total_borrowed=float(
+            payload["total_borrowed"]
+        ),
+        available_liquidity=float(
+            liquidity_evidence["numeric_value"]
+        ),
+        utilization_pct=float(
+            payload["utilization_pct"]
+        ),
+        supply_cap=(
+            None
+            if supply_cap_raw is None
+            else float(supply_cap_raw)
+        ),
+        observed_at=(
+            return_evidence["observed_at"]
+        ),
+    )

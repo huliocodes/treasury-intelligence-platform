@@ -107,6 +107,7 @@ from treasury_intelligence.sources.aave import (
     AAVE_V3_BASE_EURC_ACCESSIBILITY,
     AAVE_V3_BASE_EURC_INSTRUMENT,
     AAVE_V3_BASE_EURC_MARKET,
+    AaveReserveObservation,
     fetch_aave_v3_base_eurc,
 )
 
@@ -1260,11 +1261,16 @@ def build_addiko_universe_candidate(
     )
 
 
-def _build_aave_candidate_builder() -> CandidateBuilder:
-    observation = fetch_aave_v3_base_eurc()
+def _build_aave_candidate_builder(
+    observation: AaveReserveObservation | None = None,
+) -> CandidateBuilder:
+    resolved_observation = (
+        observation
+        or fetch_aave_v3_base_eurc()
+    )
 
     snapshot = build_aave_eurc_snapshot(
-        observation
+        resolved_observation
     )
 
     risk = get_aave_eurc_risk_assessments()
@@ -1297,7 +1303,7 @@ def _build_aave_candidate_builder() -> CandidateBuilder:
             ),
             position_builder=lambda size: (
                 build_aave_position_analysis(
-                    observation=observation,
+                    observation=resolved_observation,
                     position_size_eur=size,
                 )
             ),
@@ -1546,6 +1552,7 @@ def _apply_model_company_freshness_gate(
 def build_model_company_opportunity_universe(
     estr_observation: EstrObservation | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
+    aave_observation: AaveReserveObservation | None = None,
 ) -> tuple[
     UniverseOpportunity,
     ...
@@ -1556,7 +1563,9 @@ def build_model_company_opportunity_universe(
     )
 
     aave_builder = (
-        _build_aave_candidate_builder()
+        _build_aave_candidate_builder(
+            observation=aave_observation,
+        )
     )
 
     return (
@@ -1689,6 +1698,7 @@ def analyze_opportunity_universe_at_position_size(
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     estr_observation: EstrObservation | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
+    aave_observation: AaveReserveObservation | None = None,
     as_of: str,
 ) -> tuple[
     PortfolioCandidateAssessment,
@@ -1705,6 +1715,7 @@ def analyze_opportunity_universe_at_position_size(
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),
+            aave_observation=aave_observation,
         )
     )
 

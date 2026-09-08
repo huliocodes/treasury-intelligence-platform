@@ -64,6 +64,23 @@ def ingest_ecb_estr_evidence() -> None:
 
 
 @task(
+    name="ingest-aave-eurc-evidence",
+    retries=2,
+    retry_delay_seconds=5,
+)
+def ingest_aave_eurc_evidence() -> None:
+    _run_command(
+        [
+            sys.executable,
+            "scripts/ingest_aave_eurc.py",
+        ],
+        environment={
+            "PYTHONPATH": "src",
+        },
+    )
+
+
+@task(
     name="build-dbt-warehouse",
 )
 def build_dbt_warehouse() -> None:
@@ -104,6 +121,7 @@ def build_production_decision() -> None:
 def treasury_production_pipeline() -> None:
     ingest_aft_btf_evidence()
     ingest_ecb_estr_evidence()
+    ingest_aave_eurc_evidence()
     build_dbt_warehouse()
     build_production_decision()
 
