@@ -1,0 +1,60 @@
+version: 2
+
+sources:
+  - name: treasury_raw
+    description: >
+      Operational PostgreSQL tables populated by the Treasury
+      Intelligence Platform ingestion layer.
+
+    database: treasury_intelligence
+    schema: public
+
+    tables:
+      - name: market_evidence
+        description: >
+          Append-only market and source evidence persisted by
+          ingestion adapters.
+
+        columns:
+          - name: evidence_id
+            description: Stable idempotent evidence identifier.
+            data_tests:
+              - not_null
+              - unique
+
+          - name: instrument_id
+            data_tests:
+              - not_null
+
+          - name: evidence_type
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values:
+                      - market_return
+                      - market_liquidity
+                      - benchmark
+                      - risk
+                      - accessibility
+                      - cost
+
+          - name: observed_at
+            data_tests:
+              - not_null
+
+          - name: measure
+            data_tests:
+              - not_null
+
+          - name: source_reference
+            data_tests:
+              - not_null
+
+          - name: ingestion_run_id
+            data_tests:
+              - not_null
+
+          - name: ingested_at
+            data_tests:
+              - not_null

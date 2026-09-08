@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_market_evidence
+    description: >
+      Analytics-ready staging representation of the append-only
+      market evidence store. One row represents one immutable
+      evidence observation.
+
+    columns:
+      - name: evidence_id
+        description: Stable evidence identifier.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: instrument_id
+        data_tests:
+          - not_null
+
+      - name: evidence_type
+        data_tests:
+          - not_null
+
+      - name: observed_at
+        data_tests:
+          - not_null
+
+      - name: observed_date
+        data_tests:
+          - not_null
+
+      - name: measure
+        data_tests:
+          - not_null
+
+      - name: source_reference
+        data_tests:
+          - not_null
+
+      - name: ingestion_run_id
+        data_tests:
+          - not_null
+
+      - name: ingested_at
+        data_tests:
+          - not_null

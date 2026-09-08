@@ -1,0 +1,20 @@
+treasury_intelligence:
+  target: dev
+
+  outputs:
+    dev:
+      type: postgres
+
+      host: "{{ env_var('DBT_POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '55432') | int }}"
+
+      user: "{{ env_var('POSTGRES_USER', 'treasury') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+
+      dbname: "{{ env_var('POSTGRES_DB', 'treasury_intelligence') }}"
+
+      schema: analytics
+      threads: 4
+
+      connect_timeout: 10
+      retries: 1
