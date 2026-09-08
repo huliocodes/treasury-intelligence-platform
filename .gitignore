@@ -36,3 +36,9 @@ data/
 
 # Local database / Docker runtime
 *.pid
+
+# dbt generated artifacts
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
