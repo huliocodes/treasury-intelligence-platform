@@ -1,78 +1,147 @@
 # Treasury Intelligence Platform
 
-Decision intelligence for allocating EUR corporate treasury capital across traditional, tokenized, and onchain yield opportunities.
+Data and decision infrastructure for allocating EUR corporate treasury capital across traditional, tokenized, and onchain yield opportunities.
 
-The platform answers a concrete treasury question:
+The platform combines market-data ingestion, point-in-time evidence storage, analytical transformations, mandate-aware treasury analysis, evidence and freshness gates, portfolio construction, and human approval boundaries.
 
-> A company has €X of treasury capital today. Given its current holdings and cash economics, capital-preservation requirements, EUR/FX constraints, liquidity needs, accessibility requirements, and return objectives, how should that capital be allocated across the relevant accessible opportunity universe?
+The core question is:
 
-The canonical V1 acceptance scenario is a Slovenian d.o.o. with €5 million of unallocated EUR cash currently earning 0.00%.
+> A company has EUR X of treasury capital today. Given its current holdings and cash economics, capital-preservation requirements, EUR/FX constraints, liquidity needs, accessibility requirements, and return objectives, how should that capital be allocated across the relevant accessible opportunity universe?
 
-**€5 million and 0.00% are model-company fixture values, not hardcoded product assumptions.**
+The current production data path is:
 
-The analytical engine accepts company-supplied treasury capital, current holdings, current unallocated cash, current cash return evidence, and mandate constraints.
+~~~text
+OFFICIAL / MARKET DATA SOURCES
+├── Agence France Tresor
+├── European Central Bank
+└── additional TradFi / tokenized / onchain sources
+        ↓
+PYTHON INGESTION
+        ↓
+POSTGRESQL APPEND-ONLY MARKET EVIDENCE
+        ↓
+DBT
+├── staging
+├── latest evidence mart
+├── point-in-time evidence history
+└── data-quality tests
+        ↓
+WAREHOUSE-BACKED OPPORTUNITY INPUTS
+        ↓
+TREASURY ANALYTICS
+├── mandate
+├── eligibility
+├── position-size analysis
+├── risk
+├── liquidity
+├── return economics
+├── evidence sufficiency
+└── freshness gates
+        ↓
+PORTFOLIO DECISION
+        ↓
+RECOMMENDATION + HUMAN APPROVAL BOUNDARY
 
-V1 includes an explicit acceptance scenario proving that the same production universe can be analyzed for a €10 million treasury with a supplied 1.25% current cash yield without editing analytical source code.
+Prefect orchestrates the production refresh path.
+Docker Compose provides the local PostgreSQL infrastructure.
+~~~
+
+Current engineering stack:
+
+~~~text
+Python
+PostgreSQL 17
+dbt
+Prefect
+Docker Compose
+psycopg
+requests / BeautifulSoup
+web3
+Git
+~~~
+
+The market-evidence store is append-only. Stable evidence identifiers make source ingestion idempotent, while dbt derives both current-state and point-in-time historical views.
+
+The decision layer consumes persisted warehouse evidence where production ingestion is available rather than making arbitrary live source calls during portfolio construction.
+
+The platform intentionally stops before treasury execution. Recommendations can enter a human approval layer, but execution infrastructure is outside the current scope.
 
 This is not a generic yield dashboard.
 
-The platform evaluates whether an opportunity is actually usable by the treasury, analyzes it at the intended position size, estimates a defensible return after relevant costs, evaluates risk and liquidity, constructs a portfolio, compares the proposal with the current treasury state, produces a recommendation and recurring review decision, and stops at human approval.
-
-Live execution is intentionally outside V1.
-
 ---
 
-## V1 Status
+## Current System Status
 
-**V1 analytical functionality is complete and release-ready.**
+The analytical V1 baseline is complete. Development has since extended the project with persistent market evidence, dbt transformations, point-in-time history, live source ingestion, and Prefect orchestration.
 
-Canonical production state as of **2026-09-03**:
-
-~~~text
-Production opportunities:       14
-Recommendation-ready:            2
-Needs evidence:                  7
-Blocked:                         5
-~~~
-
-Canonical model-company recommendation:
+Canonical warehouse-backed production state as of **2026-09-08**:
 
 ~~~text
-Treasury capital:          €5,000,000
-Current unallocated cash:  €5,000,000
-Current cash return:       0.000%
-Current annual return:     €0
+Treasury capital:          EUR 5,000,000
 
-Selected opportunity:      French BTF Aug 2027
-Allocation:                €5,000,000
-Allocation percentage:     100.00%
-Defensible return:          2.760%
-Expected annual return:     €137,985
+Production opportunities:  14
+Recommendation-ready:       0
+Needs evidence:             9
+Blocked:                    5
 
-Target yield:               3.000%
-Target gap:                 0.240 percentage points
-Annual target gap:          €12,015
+Decision state:             hold unallocated
+Selected opportunity:       none
+Allocated capital:          EUR 0
+Unallocated capital:        EUR 5,000,000
 
-Economic decision:          rebalance
-Review action:              review_for_rebalance
-Monthly review status:      follow_up_required
-
-Recommendation:             submit_for_approval
+Recommended action:         hold_unallocated
 Recommendation status:      decision_ready
-Approval:                   pending
-Authorized allocation:      €0
+Authorized allocation:      EUR 0
 Execution authorized:       False
 ~~~
 
-The 3.00% target is not currently achieved.
+The zero-allocation result is intentional.
 
-V1 does not increase risk or weaken evidence requirements merely to force the portfolio above the target.
+The system does not weaken risk, liquidity, accessibility, evidence, or freshness requirements merely to produce a recommendation. When no opportunity is recommendation-ready under the current production state, capital remains unallocated.
 
-`follow_up_required` does not mean the selected economic decision is unresolved. The current cash-versus-proposal comparison is complete and supports `rebalance`.
+The current orchestrated pipeline has been validated end to end:
 
-Follow-up remains because other relevant opportunities in the broader universe still have evidence requiring refresh or completion.
+~~~text
+AFT BTF ingestion
+        ↓
+ECB ESTR ingestion
+        ↓
+PostgreSQL market_evidence
+        ↓
+dbt build
+├── 3 models
+└── 45 data tests
+        ↓
+warehouse-backed production decision
+        ↓
+Prefect flow Completed
+~~~
 
-The recommendation reflects the mandate, evidence, and market observations available as of the stated analysis date. It is not a permanent investment recommendation and should be regenerated when market data, product terms, accessibility, liquidity, risk evidence, current treasury state, or mandate constraints change.
+The current persisted production evidence includes:
+
+~~~text
+ECB ESTR
+2026-09-07
+2.188%
+benchmark / estr_rate
+
+French BTF FR0129704153
+2026-09-07 auction
+2.720%
+market_return / auction_weighted_average_rate
+~~~
+
+Ingestion is idempotent: rerunning a source adapter for an already-persisted observation produces the same stable evidence identifier and does not create a duplicate row.
+
+### Historical V1 analytical baseline
+
+The detailed V1 sections below preserve the **2026-09-03 analytical acceptance snapshot**.
+
+That historical baseline produced two recommendation-ready opportunities and selected French BTF Aug 2027 at a defensible modeled return of approximately 2.760%.
+
+Those values remain useful as deterministic regression and design documentation. They are **not the current warehouse-backed production recommendation**.
+
+The current production result should always be obtained from the refreshed warehouse-backed pipeline rather than inferred from the historical V1 snapshot.
 
 ---
 
@@ -180,7 +249,7 @@ The current 0% cash return is explicitly supplied by the model-company fixture. 
 
 ---
 
-## V1 Opportunity Universe
+## Historical V1 Opportunity Universe
 
 The canonical production universe contains **14 opportunities** spanning bank products, exchange-traded cash and bond products, direct sovereign bills, institutional money-market products, tokenized products, and DeFi.
 
@@ -227,7 +296,7 @@ An opportunity can fail recommendation readiness because of known mandate violat
 
 ---
 
-## Current €5M Decision
+## Historical V1 €5M Decision
 
 The two recommendation-ready opportunities are:
 
@@ -264,7 +333,7 @@ V1 does not increase risk merely to force the portfolio above the target.
 
 ---
 
-## Current Cash vs Proposed Allocation
+## Historical V1 Cash vs Proposed Allocation
 
 The canonical model company currently has:
 
@@ -306,7 +375,7 @@ Execution remains prohibited until the separate approval boundary is satisfied.
 
 ---
 
-## Concentration Diagnostics
+## Historical V1 Concentration Diagnostics
 
 The production mandate currently permits a 100% maximum single position.
 
@@ -340,7 +409,7 @@ A defensible production concentration policy would require portfolio-level expos
 
 ---
 
-## Why Opportunities Are Not Recommendation-Ready
+## Historical V1 Evidence Gaps
 
 V1 does not silently discard an opportunity because its yield is unattractive.
 
@@ -410,7 +479,7 @@ Live Aave observations may change between runs.
 
 ---
 
-## Evidence Freshness
+## Historical V1 Evidence Freshness
 
 Recommendation readiness depends not only on whether evidence exists but also on whether time-sensitive evidence remains usable as of the analysis date.
 
@@ -431,7 +500,7 @@ The engine uses an explicit analysis `as_of` date rather than silently using the
 
 ---
 
-## Evidence Refresh Planning
+## Historical V1 Evidence Refresh Planning
 
 V1 includes structured evidence-refresh planning.
 
@@ -473,7 +542,7 @@ A refresh action does not manufacture a new observation date. If an official sou
 
 ---
 
-## Slovenian Treasury Bills
+## Historical V1 Slovenian Treasury-Bill Research
 
 V1 includes source and discovery modeling for Slovenian Treasury bills.
 
@@ -504,14 +573,33 @@ This is intentional evidence discipline, not a missing analytical capability.
 
 ## Architecture
 
-The V1 architecture follows the business decision rather than a predetermined technology stack.
+The architecture follows the treasury decision and evidence lifecycle.
 
 ~~~text
-MARKET DATA
-├── Reference rates
-├── TradFi
-├── Tokenized / RWA
-└── DeFi
+SOURCE SYSTEMS
+├── ECB
+├── Agence France Tresor
+├── TradFi market / product sources
+├── Tokenized / RWA sources
+└── Onchain sources
+        ↓
+SOURCE ADAPTERS
+├── retrieval
+├── parsing
+├── normalization
+└── provenance
+        ↓
+POSTGRESQL
+└── public.market_evidence
+        ↓
+DBT STAGING
+└── analytics_staging.stg_market_evidence
+        ↓
+DBT MARTS
+├── analytics_marts.latest_market_evidence
+└── analytics_marts.market_evidence_history
+        ↓
+WAREHOUSE ADAPTERS
         ↓
 NORMALIZED OPPORTUNITY UNIVERSE
         ↓
@@ -523,18 +611,75 @@ POSITION-SIZE ANALYSIS
         ↓
 RISK / RETURN / LIQUIDITY
         ↓
+EVIDENCE + FRESHNESS GATES
+        ↓
 PORTFOLIO CONSTRUCTION
         ↓
-RECOMMENDATION + APPROVAL
+RECOMMENDATION
         ↓
-TREASURY STATE
-        ↓
-MONITORING + MONTHLY REVIEW
-        ↓
-REBALANCE DECISION
+HUMAN APPROVAL BOUNDARY
 
-[EXECUTION / OPERATIONS OUTSIDE V1]
+[EXECUTION / OPERATIONS OUTSIDE CURRENT SCOPE]
 ~~~
+
+### Market evidence
+
+`public.market_evidence` is the append-only operational evidence store.
+
+Each record retains:
+
+~~~text
+stable evidence ID
+instrument / benchmark identity
+market and access route where applicable
+evidence type
+measure
+observation timestamp
+numeric value and unit
+source reference
+source name / URL
+ingestion run ID
+raw normalized source payload
+ingestion timestamp
+~~~
+
+Stable evidence IDs make retries idempotent.
+
+### dbt transformation layer
+
+dbt transforms raw operational evidence into analytical representations.
+
+Current models include:
+
+~~~text
+analytics_staging.stg_market_evidence
+analytics_marts.latest_market_evidence
+analytics_marts.market_evidence_history
+~~~
+
+`latest_market_evidence` resolves the most recent persisted observation for each evidence series.
+
+`market_evidence_history` derives validity intervals from immutable observations so historical evidence remains queryable without mutating previous rows.
+
+The dbt project currently runs 45 data tests covering source constraints, required fields, uniqueness, latest-series correctness, historical validity intervals, and one-current-row-per-series invariants.
+
+### Orchestration
+
+Prefect coordinates the current production pipeline:
+
+~~~text
+ingest AFT BTF evidence
+        ↓
+ingest ECB ESTR evidence
+        ↓
+dbt build
+        ↓
+warehouse-backed production decision
+~~~
+
+Source-ingestion tasks use retries for transient upstream failures.
+
+### Domain separation
 
 The implementation deliberately separates:
 
@@ -547,9 +692,15 @@ How the corporate treasury can buy or hold it
 
 MARKET / VENUE
 Where the instrument is traded or executed
+
+EVIDENCE
+What observed fact supports an analytical claim
+
+OPPORTUNITY SNAPSHOT
+The normalized state consumed by treasury analytics
 ~~~
 
-This prevents economic exposure from being confused with brokerage, custody, venue, or protocol access.
+This prevents economic exposure from being confused with brokerage, custody, venue, protocol access, or source evidence.
 
 ---
 
@@ -953,10 +1104,11 @@ Live source access is separated from portfolio decision logic. Portfolio analysi
 
 - Python
 - Git
-- internet access for source adapters that retrieve live observations
+- Docker / Docker Compose
+- internet access for live source adapters
 - dependencies in `requirements.txt`
 
-### Create a virtual environment
+### Local environment
 
 From Git Bash:
 
@@ -965,67 +1117,94 @@ python -m venv .venv
 source .venv/Scripts/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+cp .env.example .env
 ~~~
 
-### Run the canonical €5M recommendation
+Review `.env` before running the pipeline.
+
+### Start PostgreSQL
 
 ~~~bash
-PYTHONPATH=src python scripts/inspect_production_5m_recommendation.py
+docker compose up -d postgres
+docker compose ps
 ~~~
 
-Expected canonical structure as of 2026-09-03:
+### Start Prefect
+
+In a separate terminal:
+
+~~~bash
+source .venv/Scripts/activate
+prefect server start
+~~~
+
+The local Prefect UI and API are served on port `4200`.
+
+### Run the end-to-end production pipeline
+
+With Prefect running:
+
+~~~bash
+./scripts/run_showcase_demo.sh
+~~~
+
+The runner:
 
 ~~~text
-Production universe:       14
-Recommendation-ready:       2
-Needs evidence:             7
-Blocked:                    5
-
-Selected:                   French BTF Aug 2027
-Allocation:                 €5,000,000
-Defensible return:          2.760%
-Expected annual return:     €137,985
+loads the local environment
+starts / verifies PostgreSQL
+applies the database schema
+checks the Prefect API
+runs the orchestrated production pipeline
+queries the latest warehouse evidence
+prints the final repository state
 ~~~
 
-### Run the full end-to-end decision
+The Prefect flow itself can also be run directly:
 
 ~~~bash
-PYTHONPATH=src python scripts/inspect_end_to_end_treasury_decision.py
+PYTHONPATH=src python -m treasury_intelligence.orchestration.production_pipeline
 ~~~
 
-### Run the recurring monthly review
+### Run source ingestion independently
 
 ~~~bash
-PYTHONPATH=src python scripts/inspect_monthly_review.py
+PYTHONPATH=src python scripts/ingest_aft_btf.py
+PYTHONPATH=src python scripts/ingest_ecb_estr.py
 ~~~
 
-### Run arbitrary-company input acceptance
+### Run dbt independently
 
 ~~~bash
-PYTHONPATH=src python scripts/inspect_arbitrary_company_inputs.py
+export DBT_POSTGRES_HOST=localhost
+
+dbt build     --project-dir dbt     --profiles-dir dbt
 ~~~
 
-This verifies:
+### Run the warehouse-backed production decision
+
+~~~bash
+set -a
+source .env
+set +a
+
+PYTHONPATH=src python     scripts/inspect_production_5m_recommendation.py
+~~~
+
+### Other analytical regressions
+
+The repository retains deterministic analytical inspection scripts for individual domain invariants and historical V1 acceptance scenarios, including:
 
 ~~~text
-Treasury capital:          €10,000,000
-Current cash return:       1.250%
-Current annual return:     €125,000
-Production universe:       14
-Analyzed position size:    €10,000,000
+inspect_arbitrary_company_inputs.py
+inspect_end_to_end_treasury_decision.py
+inspect_monthly_review.py
+inspect_freshness_gated_universe.py
+inspect_production_evidence_refresh_plan.py
+inspect_cash_rebalance_scenarios.py
 ~~~
 
-### Run cash-to-rebalance scenarios
-
-~~~bash
-PYTHONPATH=src python scripts/inspect_cash_rebalance_scenarios.py
-~~~
-
-### Run the evidence refresh plan
-
-~~~bash
-PYTHONPATH=src python scripts/inspect_production_evidence_refresh_plan.py
-~~~
+These complement the dbt data-quality layer rather than replace it.
 
 ---
 
@@ -1033,32 +1212,41 @@ PYTHONPATH=src python scripts/inspect_production_evidence_refresh_plan.py
 
 ~~~text
 treasury-intelligence-platform/
+├── dbt/
+│   ├── models/
+│   │   ├── staging/
+│   │   └── marts/
+│   ├── tests/
+│   ├── dbt_project.yml
+│   └── profiles.yml
 ├── docs/
 │   └── v1_opportunity_universe.md
 ├── scripts/
+│   ├── apply_database_schema.py
+│   ├── ingest_aft_btf.py
+│   ├── ingest_ecb_estr.py
 │   ├── inspect_production_5m_recommendation.py
-│   ├── inspect_end_to_end_treasury_decision.py
-│   ├── inspect_monthly_review.py
-│   ├── inspect_arbitrary_company_inputs.py
-│   ├── inspect_production_evidence_refresh_plan.py
+│   ├── run_showcase_demo.sh
 │   └── ... analytical inspection / regression scripts
+├── sql/
+│   └── 001_create_market_evidence.sql
 ├── src/
 │   └── treasury_intelligence/
 │       ├── analytics/
 │       ├── mandates/
 │       ├── models/
+│       ├── orchestration/
+│       ├── persistence/
 │       ├── policies/
 │       └── sources/
+├── compose.yaml
+├── .env.example
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ~~~
 
-The project currently uses Python modules and inspection/assertion scripts directly.
-
-There is intentionally no database, dbt project, Docker deployment, cloud warehouse, orchestration platform, or UI in V1.
-
-Those technologies are not required to answer the current treasury decision problem.
+The codebase separates source acquisition, persistence, transformation, treasury analytics, policy, and orchestration rather than embedding those concerns in one execution script.
 
 ---
 
@@ -1066,7 +1254,7 @@ Those technologies are not required to answer the current treasury decision prob
 
 The core engineering rule is:
 
-> Add technology only when the project develops a problem that the technology solves.
+> Add technology when a concrete data, analytical, reliability, or operational requirement justifies it.
 
 The project follows this hierarchy:
 
@@ -1077,14 +1265,32 @@ ANALYTICAL REQUIREMENT
         ↓
 DATA REQUIREMENT
         ↓
-ENGINEERING SOLUTION
+ENGINEERING REQUIREMENT
         ↓
 TECHNOLOGY CHOICE
 ~~~
 
-V1 did not require a database, warehouse, dbt, Docker, orchestration framework, distributed processing system, dashboard, or execution integration to answer its core business question.
+The analytical V1 began as deterministic Python domain logic.
 
-Those technologies should be introduced only when a later product requirement creates a concrete need for them.
+Infrastructure was added when the system developed concrete requirements for:
+
+~~~text
+immutable source evidence
+historical observations
+idempotent ingestion
+shared warehouse-backed inputs
+data-quality validation
+repeatable transformation
+source refresh orchestration
+failure visibility
+reproducible local infrastructure
+~~~
+
+Those requirements led to PostgreSQL, dbt, Prefect, and Docker Compose.
+
+The project still avoids infrastructure that has no current requirement. There is no distributed-processing layer, separate cloud warehouse, dashboard application, or execution system simply for architectural completeness.
+
+Validated progress is committed incrementally so each milestone leaves the repository in a reproducible state.
 
 ---
 
@@ -1147,73 +1353,116 @@ The inspection scripts contain executable assertions for the business invariants
 
 ---
 
-## Known V1 Limitations
+## Known Limitations
 
-V1 is intentionally narrow.
+The current system is intentionally incomplete in several areas.
 
-Current limitations include:
-
-1. The opportunity universe is reasonably representative of the current EUR treasury problem but is not literally every financial product in existence.
+1. The 14-opportunity universe is representative of the current EUR treasury problem but is not every accessible financial product.
 2. Several opportunities remain evidence-incomplete and therefore cannot become recommendation-ready.
-3. Some TradFi observations require manual evidence maintenance rather than deterministic automated retrieval.
-4. Live onchain observations can change between runs.
-5. Execution costs are modeled from available evidence rather than confirmed live fills.
-6. The system does not maintain a production historical database.
-7. There is no UI, persistent workflow application, or scheduler.
-8. Portfolio-level concentration and correlated-exposure policy is not sufficiently modeled to claim that arbitrary diversification limits improve safety.
-9. Tax and accounting treatment are not modeled as a complete jurisdiction-specific treasury engine.
-10. Live treasury execution is outside V1.
-11. The canonical recommendation is specific to the stated mandate, treasury state, analysis date, and available evidence.
-12. A recommendation must be regenerated when relevant market conditions, product terms, evidence, accessibility, treasury state, or mandate constraints change.
+3. Production warehouse ingestion is currently implemented for selected official evidence paths, including AFT BTF auction evidence and ECB ESTR; other sources still use older adapters or manually maintained evidence.
+4. Some TradFi observations still require manual evidence maintenance rather than deterministic automated retrieval.
+5. Live onchain observations can change between runs.
+6. Execution costs are modeled from available evidence rather than confirmed live fills.
+7. The PostgreSQL/dbt warehouse currently covers the evidence series migrated into the production persistence path; the full opportunity universe has not yet been warehouse-backed.
+8. Prefect orchestration is implemented locally, but scheduled deployment / worker infrastructure has not yet been productionized.
+9. There is no user-facing application or dashboard.
+10. Portfolio-level concentration and correlated-exposure policy is not yet sufficiently modeled to claim that arbitrary diversification limits improve safety.
+11. Tax and accounting treatment are not modeled as a complete jurisdiction-specific treasury engine.
+12. Live treasury execution is outside the current scope.
+13. A recommendation is specific to the stated mandate, treasury state, analysis date, and available evidence and must be regenerated when those inputs change.
 
-These are product boundaries, not reasons to add infrastructure without a corresponding business requirement.
+These are current system boundaries rather than reasons to add infrastructure without a corresponding requirement.
 
 ---
 
 ## What Is Already Implemented
 
-The following are part of V1:
+Current capabilities include:
+
+### Data ingestion and persistence
+
+- live ECB ESTR retrieval,
+- live AFT BTF auction retrieval,
+- normalized source adapters,
+- stable idempotent evidence IDs,
+- append-only PostgreSQL market evidence,
+- raw normalized payload retention,
+- source provenance,
+- ingestion run identifiers,
+- historical evidence backfill.
+
+### Transformation and data quality
+
+- dbt source definitions,
+- staging transformation,
+- latest-evidence mart,
+- point-in-time market-evidence history,
+- validity intervals,
+- source and model tests,
+- latest-series correctness tests,
+- one-current-row-per-series validation.
+
+### Orchestration and infrastructure
+
+- Prefect production flow,
+- retryable source-ingestion tasks,
+- dbt orchestration,
+- warehouse-backed decision orchestration,
+- Docker Compose PostgreSQL,
+- reproducible database schema application,
+- end-to-end local pipeline runner.
+
+### Treasury intelligence
 
 - treasury-state modeling,
 - current cash economics,
-- current-holding mandate surveillance,
-- allocation-delta analysis,
-- economic current-vs-proposed comparison,
-- switching-friction analysis,
-- rebalance materiality policy,
-- rebalance decisions,
-- recurring monthly-review decisions,
+- mandate surveillance,
+- accessibility analysis,
+- arbitrary position-size analysis,
+- liquidity analysis,
+- return economics,
+- risk assessment,
+- evidence sufficiency,
 - evidence freshness,
 - evidence dependency classification,
 - structured evidence-refresh planning,
 - production-universe freshness gating,
-- recommendation and approval boundaries,
-- arbitrary position-size analysis,
-- and arbitrary-company treasury-size/current-cash input acceptance.
+- portfolio construction,
+- allocation deltas,
+- current-versus-proposed economics,
+- switching-friction analysis,
+- rebalance materiality,
+- recurring monthly-review decisions,
+- recommendation generation,
+- human approval boundaries,
+- arbitrary-company treasury-size and cash-return inputs.
+
+The production decision layer can consume persisted warehouse evidence and is allowed to return a valid `hold_unallocated` decision when no candidate satisfies the current evidence and freshness gates.
 
 ---
 
 ## Potential Future Problems
 
-Further development should begin only when a concrete business requirement justifies reopening architecture.
+Further development should remain requirement-driven.
 
-Possible future problems include:
+Current likely areas include:
 
-- broader EUR opportunity coverage,
-- additional company mandates and jurisdictions,
-- more automated source refresh where official sources support deterministic retrieval,
-- persistent historical observations,
-- recommendation-change history and auditability,
-- richer portfolio-level correlated-exposure modeling,
-- evidence-backed concentration policy,
-- tax/accounting-aware return analysis,
-- persistent approval workflow,
-- integrations with company treasury/accounting systems,
+- migrate additional production opportunity evidence into the PostgreSQL/dbt path,
+- broaden deterministic official-source ingestion,
+- productionize Prefect scheduling / deployment,
+- add pipeline-run and source-freshness observability,
+- extend warehouse-backed point-in-time decision inputs,
+- broaden EUR opportunity coverage,
+- support additional company mandates and jurisdictions,
+- persist recommendation and review history,
+- improve portfolio-level correlated-exposure modeling,
+- add evidence-backed concentration policy,
+- extend tax/accounting-aware return analysis,
+- add a persistent approval workflow,
+- integrate with company treasury/accounting systems,
 - and, only if intentionally added later, controlled execution infrastructure.
 
-These are not automatically the next roadmap.
-
-The next architecture should be chosen only after selecting the next business problem.
+These are not automatically required in sequence. The next implementation should be chosen by the most valuable unresolved product or data requirement.
 
 ---
 
