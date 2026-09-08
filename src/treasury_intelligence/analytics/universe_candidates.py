@@ -907,6 +907,7 @@ def build_btf_universe_candidate(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    snapshot: OpportunitySnapshot | None = None,
 ) -> PortfolioCandidateAssessment:
     return _build_french_btf_universe_candidate(
         position_size_eur=position_size_eur,
@@ -915,7 +916,10 @@ def build_btf_universe_candidate(
         instrument=BTF_2027_03_10,
         market=BTF_2027_03_10_MARKET,
         accessibility=BTF_2027_03_10_ACCESSIBILITY,
-        snapshot=get_btf_2027_03_10_snapshot(),
+        snapshot=(
+            snapshot
+            or get_btf_2027_03_10_snapshot()
+        ),
         market_observation=(
             get_btf_2027_03_10_market_observation()
         ),
@@ -1320,6 +1324,7 @@ def _build_aave_candidate_builder() -> CandidateBuilder:
 def build_model_company_freshness_dependencies(
     *,
     instrument_id: str,
+    btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
 ):
     if instrument_id == ERNX_INSTRUMENT.instrument_id:
         return build_opportunity_freshness_dependencies(
@@ -1352,7 +1357,8 @@ def build_model_company_freshness_dependencies(
     if instrument_id == BTF_2027_03_10.instrument_id:
         return build_opportunity_freshness_dependencies(
             snapshot=(
-                get_btf_2027_03_10_snapshot()
+                btf_2027_03_10_snapshot
+                or get_btf_2027_03_10_snapshot()
             ),
             market_observation=(
                 get_btf_2027_03_10_market_observation()
@@ -1505,10 +1511,14 @@ def _apply_model_company_freshness_gate(
     *,
     candidate: PortfolioCandidateAssessment,
     as_of: str,
+    btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
 ) -> PortfolioCandidateAssessment:
     dependencies = (
         build_model_company_freshness_dependencies(
             instrument_id=candidate.instrument_id,
+            btf_2027_03_10_snapshot=(
+                btf_2027_03_10_snapshot
+            ),
         )
     )
 
@@ -1535,6 +1545,7 @@ def _apply_model_company_freshness_gate(
 
 def build_model_company_opportunity_universe(
     estr_observation: EstrObservation | None = None,
+    btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
 ) -> tuple[
     UniverseOpportunity,
     ...
@@ -1620,7 +1631,13 @@ def build_model_company_opportunity_universe(
             key="btf",
             label="French BTF Mar",
             candidate_builder=(
-                build_btf_universe_candidate
+                lambda size, mandate: (
+                    build_btf_universe_candidate(
+                        position_size_eur=size,
+                        mandate=mandate,
+                        snapshot=btf_2027_03_10_snapshot,
+                    )
+                )
             ),
         ),
         UniverseOpportunity(
@@ -1671,6 +1688,7 @@ def analyze_opportunity_universe_at_position_size(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     estr_observation: EstrObservation | None = None,
+    btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
     as_of: str,
 ) -> tuple[
     PortfolioCandidateAssessment,
@@ -1684,6 +1702,9 @@ def analyze_opportunity_universe_at_position_size(
     opportunities = (
         build_model_company_opportunity_universe(
             estr_observation=estr_observation,
+            btf_2027_03_10_snapshot=(
+                btf_2027_03_10_snapshot
+            ),
         )
     )
 
@@ -1699,6 +1720,9 @@ def analyze_opportunity_universe_at_position_size(
         _apply_model_company_freshness_gate(
             candidate=candidate,
             as_of=as_of,
+            btf_2027_03_10_snapshot=(
+                btf_2027_03_10_snapshot
+            ),
         )
         for candidate in candidates
     )

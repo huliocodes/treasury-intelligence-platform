@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+
+import psycopg
+
 from treasury_intelligence.analytics.allocation_selection import (
     build_single_position_construction_from_analyzed_candidates,
 )
@@ -32,17 +36,46 @@ from treasury_intelligence.mandates.model_company import (
     MODEL_COMPANY_MANDATE,
 )
 
+from treasury_intelligence.persistence.opportunity_snapshots import (
+    load_latest_opportunity_snapshot,
+)
 
-AS_OF = "2026-09-03"
+from treasury_intelligence.sources.france import (
+    get_btf_2027_03_10_snapshot,
+)
+
+
+AS_OF = "2026-09-08"
 
 
 def main() -> None:
+    database_url = os.environ.get("DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError(
+            "DATABASE_URL is required for the canonical "
+            "production recommendation."
+        )
+
+    with psycopg.connect(database_url) as connection:
+        btf_2027_03_10_snapshot = (
+            load_latest_opportunity_snapshot(
+                connection=connection,
+                structural_snapshot=(
+                    get_btf_2027_03_10_snapshot()
+                ),
+            )
+        )
+
     universe_candidates = (
         analyze_opportunity_universe_at_position_size(
             position_size_eur=(
                 MODEL_COMPANY_MANDATE.treasury_capital_eur
             ),
             mandate=MODEL_COMPANY_MANDATE,
+            btf_2027_03_10_snapshot=(
+                btf_2027_03_10_snapshot
+            ),
             as_of=AS_OF,
         )
     )
@@ -80,47 +113,15 @@ def main() -> None:
         if candidate.candidate_status == "blocked"
     )
 
-    assert len(ready) == 2
-    assert len(needs_evidence) == 7
-    assert len(blocked) == 5
+    assert (
+        len(ready)
+        + len(needs_evidence)
+        + len(blocked)
+        == len(universe_candidates)
+    )
 
     assert len(allocation_candidates) == 14
-
     assert allocation_candidates == universe_candidates
-
-    selected_assessment_id = (
-        construction.allocation_lines[0]
-        .candidate_assessment_id
-    )
-
-    selected_matches = tuple(
-        candidate
-        for candidate in allocation_candidates
-        if (
-            candidate.assessment_id
-            == selected_assessment_id
-        )
-    )
-
-    assert len(selected_matches) == 1
-
-    selected = selected_matches[0]
-
-    assert selected in universe_candidates
-
-    assert selected.label == "French BTF Aug 2027"
-
-    assert abs(
-        selected.position_size_eur
-        - 5_000_000.0
-    ) <= 0.01
-
-    assert selected.defensible_return_pct is not None
-
-    assert abs(
-        selected.defensible_return_pct
-        - 2.7597
-    ) < 0.001
 
     ready_with_returns = tuple(
         candidate
@@ -128,39 +129,71 @@ def main() -> None:
         if candidate.defensible_return_pct is not None
     )
 
-    assert len(ready_with_returns) == 2
-
-    assert selected is max(
-        ready_with_returns,
-        key=lambda candidate: (
-            candidate.defensible_return_pct,
-            candidate.assessment_id,
-        ),
-    )
+    assert len(ready_with_returns) == len(ready)
 
     assert construction.candidate_count == 14
 
     assert (
         construction.recommendation_ready_candidate_count
-        == 2
+        == len(ready)
     )
 
-    assert abs(
-        construction.allocated_capital_eur
-        - 5_000_000.0
-    ) <= 0.01
+    selected = None
 
-    assert abs(
-        construction.unallocated_capital_eur
-    ) <= 0.01
+    if ready_with_returns:
+        assert len(construction.allocation_lines) == 1
 
-    assert len(construction.allocation_lines) == 1
+        selected_assessment_id = (
+            construction.allocation_lines[0]
+            .candidate_assessment_id
+        )
 
-    assert (
-        construction.allocation_lines[0]
-        .candidate_assessment_id
-        == selected.assessment_id
-    )
+        selected_matches = tuple(
+            candidate
+            for candidate in allocation_candidates
+            if (
+                candidate.assessment_id
+                == selected_assessment_id
+            )
+        )
+
+        assert len(selected_matches) == 1
+
+        selected = selected_matches[0]
+
+        assert selected in universe_candidates
+
+        assert selected.recommendation_ready
+        assert selected.defensible_return_pct is not None
+
+        assert selected is max(
+            ready_with_returns,
+            key=lambda candidate: (
+                candidate.defensible_return_pct,
+                candidate.assessment_id,
+            ),
+        )
+
+        assert abs(
+            construction.allocated_capital_eur
+            - MODEL_COMPANY_MANDATE.treasury_capital_eur
+        ) <= 0.01
+
+        assert abs(
+            construction.unallocated_capital_eur
+        ) <= 0.01
+
+    else:
+        assert len(construction.allocation_lines) == 0
+
+        assert abs(
+            construction.allocated_capital_eur
+        ) <= 0.01
+
+        assert abs(
+            construction.unallocated_capital_eur
+            - MODEL_COMPANY_MANDATE.treasury_capital_eur
+        ) <= 0.01
 
     proposal = build_portfolio_proposal(
         proposal_id=(
@@ -177,16 +210,22 @@ def main() -> None:
         proposal=proposal,
     )
 
-    approval = create_pending_approval(
-        approval_id=(
-            "model_company_5m_production_approval"
-        ),
-        recommendation=recommendation,
-        notes=(
-            "Pending human approval. No execution is "
-            "authorized."
-        ),
-    )
+    approval = None
+
+    if (
+        recommendation.recommended_action
+        == "submit_for_approval"
+    ):
+        approval = create_pending_approval(
+            approval_id=(
+                "model_company_5m_production_approval"
+            ),
+            recommendation=recommendation,
+            notes=(
+                "Pending human approval. No execution is "
+                "authorized."
+            ),
+        )
 
     report = build_treasury_decision_report(
         report_id=(
@@ -205,83 +244,151 @@ def main() -> None:
         ),
     )
 
-    explanation = build_treasury_decision_explanation(
-        explanation_id=(
-            "model_company_5m_production_explanation"
-        ),
-        report=report,
-        universe_candidates=universe_candidates,
-        notes=(
-            "Production decision explanation uses the "
-            "same candidate assessments that drove "
-            "allocation selection."
-        ),
-    )
+    explanation = None
+
+    if selected is not None:
+        explanation = build_treasury_decision_explanation(
+            explanation_id=(
+                "model_company_5m_production_explanation"
+            ),
+            report=report,
+            universe_candidates=universe_candidates,
+            notes=(
+                "Production decision explanation uses the "
+                "same candidate assessments that drove "
+                "allocation selection."
+            ),
+        )
 
     assert report.universe.opportunity_count == 14
 
     assert (
         report.universe.recommendation_ready_count
-        == 2
-    )
-
-    assert report.universe.needs_evidence_count == 7
-    assert report.universe.blocked_count == 5
-
-    assert (
-        explanation.selected_label
-        == "French BTF Aug 2027"
-    )
-
-    assert abs(
-        explanation.selected_allocation_eur
-        - 5_000_000.0
-    ) <= 0.01
-
-    assert abs(
-        explanation.selected_allocation_pct
-        - 100.0
-    ) < 0.001
-
-    assert abs(
-        explanation.selected_return_pct
-        - selected.defensible_return_pct
-    ) < 1e-9
-
-    expected_annual_return_eur = (
-        5_000_000.0
-        * selected.defensible_return_pct
-        / 100.0
-    )
-
-    assert abs(
-        explanation.selected_annual_return_eur
-        - expected_annual_return_eur
-    ) <= 0.01
-
-    assert explanation.target_yield_pct == 3.0
-
-    assert explanation.target_yield_gap_pct is not None
-    assert explanation.target_yield_gap_pct > 0
-
-    assert (
-        recommendation.recommended_action
-        == "submit_for_approval"
+        == len(ready)
     )
 
     assert (
-        recommendation.recommendation_status
-        == "decision_ready"
+        report.universe.needs_evidence_count
+        == len(needs_evidence)
     )
 
-    assert approval.approval_status == "pending"
+    assert (
+        report.universe.blocked_count
+        == len(blocked)
+    )
 
-    assert explanation.authorized_allocation_eur == 0.0
-    assert not explanation.execution_authorized
+    assert (
+        len(ready)
+        + len(needs_evidence)
+        + len(blocked)
+        == 14
+    )
+
+    assert report.authorized_allocation_eur == 0.0
+    assert not report.execution_authorized
+
+    if selected is not None:
+        assert explanation is not None
+
+        assert (
+            explanation.selected_label
+            == selected.label
+        )
+
+        assert abs(
+            explanation.selected_allocation_eur
+            - selected.position_size_eur
+        ) <= 0.01
+
+        assert abs(
+            explanation.selected_allocation_pct
+            - 100.0
+        ) < 0.001
+
+        assert selected.defensible_return_pct is not None
+
+        assert abs(
+            explanation.selected_return_pct
+            - selected.defensible_return_pct
+        ) < 1e-9
+
+        expected_annual_return_eur = (
+            selected.position_size_eur
+            * selected.defensible_return_pct
+            / 100.0
+        )
+
+        assert abs(
+            explanation.selected_annual_return_eur
+            - expected_annual_return_eur
+        ) <= 0.01
+
+        assert explanation.target_yield_pct == 3.0
+
+        assert (
+            recommendation.recommended_action
+            == "submit_for_approval"
+        )
+
+        assert (
+            recommendation.recommendation_status
+            == "decision_ready"
+        )
+
+        assert recommendation.requires_human_approval
+        assert not recommendation.requires_review
+
+        assert approval is not None
+        assert approval.approval_status == "pending"
+
+        assert (
+            explanation.authorized_allocation_eur
+            == 0.0
+        )
+
+        assert not explanation.execution_authorized
+
+    else:
+        assert explanation is None
+        assert approval is None
+
+        assert (
+            recommendation.recommended_action
+            == "hold_unallocated"
+        )
+
+        assert (
+            recommendation.recommendation_status
+            == "decision_ready"
+        )
+
+        assert not recommendation.requires_human_approval
+        assert not recommendation.requires_review
+
+        assert abs(
+            report.allocated_capital_eur
+        ) <= 0.01
+
+        assert abs(
+            report.unallocated_capital_eur
+            - MODEL_COMPANY_MANDATE.treasury_capital_eur
+        ) <= 0.01
+
+        assert (
+            report.portfolio_defensible_return_pct
+            is None
+        )
+
+        assert (
+            report.portfolio_annual_return_eur
+            is None
+        )
+
+        assert report.approval_status is None
 
     print(
-        "MILESTONE 15K — CANONICAL PRODUCTION "
-        "EUR 5M RECOMMENDATION"
+        "MILESTONE 16C.4 - WAREHOUSE-BACKED "
+        "PRODUCTION DECISION"
     )
     print()
 
@@ -320,66 +427,79 @@ def main() -> None:
 
     print()
 
-    print(
-        "Selected:",
-        explanation.selected_label,
-    )
+    if selected is not None:
+        assert explanation is not None
 
-    print(
-        "Allocation:",
-        f"EUR "
-        f"{explanation.selected_allocation_eur:,.0f}",
-    )
-
-    print(
-        "Allocation percentage:",
-        f"{explanation.selected_allocation_pct:.2f}%",
-    )
-
-    print(
-        "Defensible return:",
-        f"{explanation.selected_return_pct:.3f}%",
-    )
-
-    print(
-        "Expected annual return:",
-        f"EUR "
-        f"{explanation.selected_annual_return_eur:,.0f}",
-    )
-
-    print()
-
-    print(
-        "Target yield:",
-        f"{explanation.target_yield_pct:.3f}%",
-    )
-
-    print(
-        "Target yield gap:",
-        f"{explanation.target_yield_gap_pct:.3f} "
-        "percentage points",
-    )
-
-    print(
-        "Target annual EUR gap:",
-        f"EUR "
-        f"{explanation.target_yield_gap_eur:,.0f}",
-    )
-
-    print()
-
-    print("READY OPPORTUNITIES")
-
-    for opportunity in explanation.ready_opportunities:
         print(
-            f"  {opportunity.label:<24}"
-            f"{opportunity.defensible_return_pct:>7.3f}%"
-            f"  annual="
+            "Decision state: actionable allocation"
+        )
+
+        print(
+            "Selected:",
+            explanation.selected_label,
+        )
+
+        print(
+            "Allocation:",
             f"EUR "
-            f"{opportunity.annual_return_eur_at_position:>10,.0f}"
-            f"  disadvantage="
-            f"{opportunity.return_difference_vs_selected_bps:>6.2f}"
-            f" bps"
+            f"{explanation.selected_allocation_eur:,.0f}",
+        )
+
+        print(
+            "Allocation percentage:",
+            f"{explanation.selected_allocation_pct:.2f}%",
+        )
+
+        print(
+            "Defensible return:",
+            f"{explanation.selected_return_pct:.3f}%",
+        )
+
+        print(
+            "Expected annual return:",
+            f"EUR "
+            f"{explanation.selected_annual_return_eur:,.0f}",
+        )
+
+        print()
+
+        print("READY OPPORTUNITIES")
+
+        for opportunity in explanation.ready_opportunities:
+            print(
+                f"  {opportunity.label:<24}"
+                f"{opportunity.defensible_return_pct:>7.3f}%"
+                f"  annual="
+                f"EUR "
+                f"{opportunity.annual_return_eur_at_position:>10,.0f}"
+                f"  disadvantage="
+                f"{opportunity.return_difference_vs_selected_bps:>6.2f}"
+                f" bps"
+            )
+
+    else:
+        print(
+            "Decision state: hold unallocated"
+        )
+
+        print(
+            "Selected: none"
+        )
+
+        print(
+            "Allocation:",
+            f"EUR {report.allocated_capital_eur:,.0f}",
+        )
+
+        print(
+            "Unallocated:",
+            f"EUR {report.unallocated_capital_eur:,.0f}",
+        )
+
+        print(
+            "Reason: no recommendation-ready opportunity "
+            "currently satisfies the production evidence "
+            "and freshness gates."
         )
 
     print()
@@ -420,14 +540,18 @@ def main() -> None:
     print(
         "Selected assessment originates from "
         "production universe:",
-        selected in universe_candidates,
+        (
+            selected in universe_candidates
+            if selected is not None
+            else "not applicable"
+        ),
     )
 
     print()
 
     print(
-        "All Milestone 15K canonical-production-"
-        "selection assertions passed."
+        "All Milestone 16C.4 warehouse-backed "
+        "production-decision assertions passed."
     )
 
 
