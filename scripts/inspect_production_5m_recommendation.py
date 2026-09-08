@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, time, timezone
 
 import psycopg
 
@@ -40,6 +41,10 @@ from treasury_intelligence.persistence.opportunity_snapshots import (
     load_latest_opportunity_snapshot,
 )
 
+from treasury_intelligence.sources.ecb import (
+    load_latest_estr_observation,
+)
+
 from treasury_intelligence.sources.france import (
     get_btf_2027_03_10_snapshot,
 )
@@ -57,6 +62,12 @@ def main() -> None:
             "production recommendation."
         )
 
+    warehouse_as_of = datetime.combine(
+        datetime.fromisoformat(AS_OF).date(),
+        time.max,
+        tzinfo=timezone.utc,
+    )
+
     with psycopg.connect(database_url) as connection:
         btf_2027_03_10_snapshot = (
             load_latest_opportunity_snapshot(
@@ -67,12 +78,20 @@ def main() -> None:
             )
         )
 
+        estr_observation = (
+            load_latest_estr_observation(
+                connection=connection,
+                as_of=warehouse_as_of,
+            )
+        )
+
     universe_candidates = (
         analyze_opportunity_universe_at_position_size(
             position_size_eur=(
                 MODEL_COMPANY_MANDATE.treasury_capital_eur
             ),
             mandate=MODEL_COMPANY_MANDATE,
+            estr_observation=estr_observation,
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),
