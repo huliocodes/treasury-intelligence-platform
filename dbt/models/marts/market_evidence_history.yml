@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: market_evidence_history
+    description: >
+      Historical market evidence with validity intervals derived
+      from immutable observations. Each row is valid from its
+      observation timestamp until the next observation for the
+      same evidence series. A null valid_to marks the current row.
+
+    config:
+      materialized: view
+      schema: marts
+
+    columns:
+      - name: evidence_id
+        data_tests:
+          - not_null
+          - unique
+
+      - name: instrument_id
+        data_tests:
+          - not_null
+
+      - name: evidence_type
+        data_tests:
+          - not_null
+
+      - name: measure
+        data_tests:
+          - not_null
+
+      - name: valid_from
+        data_tests:
+          - not_null
+
+      - name: observed_date
+        data_tests:
+          - not_null
+
+      - name: source_reference
+        data_tests:
+          - not_null
+
+      - name: ingestion_run_id
+        data_tests:
+          - not_null
+
+      - name: ingested_at
+        data_tests:
+          - not_null
+
+      - name: is_current
+        data_tests:
+          - not_null
