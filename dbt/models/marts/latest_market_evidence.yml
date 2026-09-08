@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: latest_market_evidence
+    description: >
+      Latest persisted evidence observation for each distinct
+      instrument, market, access-route, evidence-type and measure
+      series. Historical rows remain preserved in the staging and
+      raw layers.
+
+    config:
+      materialized: view
+      schema: marts
+
+    columns:
+      - name: evidence_id
+        description: Latest evidence row identifier for the series.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: instrument_id
+        data_tests:
+          - not_null
+
+      - name: evidence_type
+        data_tests:
+          - not_null
+
+      - name: measure
+        data_tests:
+          - not_null
+
+      - name: observed_at
+        data_tests:
+          - not_null
+
+      - name: observed_date
+        data_tests:
+          - not_null
+
+      - name: source_reference
+        data_tests:
+          - not_null
+
+      - name: ingestion_run_id
+        data_tests:
+          - not_null
+
+      - name: ingested_at
+        data_tests:
+          - not_null
