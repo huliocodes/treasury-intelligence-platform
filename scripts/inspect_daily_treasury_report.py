@@ -31,6 +31,10 @@ from treasury_intelligence.sources.france import (
     get_btf_2027_03_10_snapshot,
 )
 
+from treasury_intelligence.sources.ishares import (
+    get_ernx_snapshot,
+)
+
 
 REPORT_TIMEZONE = "Europe/Ljubljana"
 
@@ -164,6 +168,15 @@ def main() -> None:
             )
         )
 
+        ernx_snapshot = (
+            load_latest_opportunity_snapshot(
+                connection=connection,
+                structural_snapshot=(
+                    get_ernx_snapshot()
+                ),
+            )
+        )
+
         estr_observation = (
             load_latest_estr_observation(
                 connection=connection,
@@ -186,6 +199,7 @@ def main() -> None:
             ),
             mandate=MODEL_COMPANY_MANDATE,
             estr_observation=estr_observation,
+            ernx_snapshot=ernx_snapshot,
             btf_2027_03_10_snapshot=(
                 btf_snapshot
             ),

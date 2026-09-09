@@ -447,8 +447,12 @@ def build_ernx_universe_candidate(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     holding_period_days: int = DEFAULT_HOLDING_PERIOD_DAYS,
+    snapshot: OpportunitySnapshot | None = None,
 ) -> PortfolioCandidateAssessment:
-    snapshot = get_ernx_snapshot()
+    snapshot = (
+        snapshot
+        or get_ernx_snapshot()
+    )
 
     market_observation = (
         get_ernx_market_observation()
@@ -1330,11 +1334,15 @@ def _build_aave_candidate_builder(
 def build_model_company_freshness_dependencies(
     *,
     instrument_id: str,
+    ernx_snapshot: OpportunitySnapshot | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
 ):
     if instrument_id == ERNX_INSTRUMENT.instrument_id:
         return build_opportunity_freshness_dependencies(
-            snapshot=get_ernx_snapshot(),
+            snapshot=(
+                ernx_snapshot
+                or get_ernx_snapshot()
+            ),
             market_observation=(
                 get_ernx_market_observation()
             ),
@@ -1517,11 +1525,13 @@ def _apply_model_company_freshness_gate(
     *,
     candidate: PortfolioCandidateAssessment,
     as_of: str,
+    ernx_snapshot: OpportunitySnapshot | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
 ) -> PortfolioCandidateAssessment:
     dependencies = (
         build_model_company_freshness_dependencies(
             instrument_id=candidate.instrument_id,
+            ernx_snapshot=ernx_snapshot,
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),
@@ -1551,6 +1561,7 @@ def _apply_model_company_freshness_gate(
 
 def build_model_company_opportunity_universe(
     estr_observation: EstrObservation | None = None,
+    ernx_snapshot: OpportunitySnapshot | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
     aave_observation: AaveReserveObservation | None = None,
 ) -> tuple[
@@ -1606,7 +1617,13 @@ def build_model_company_opportunity_universe(
             key="ernx",
             label="ERNX",
             candidate_builder=(
-                build_ernx_universe_candidate
+                lambda size, mandate: (
+                    build_ernx_universe_candidate(
+                        position_size_eur=size,
+                        mandate=mandate,
+                        snapshot=ernx_snapshot,
+                    )
+                )
             ),
         ),
         UniverseOpportunity(
@@ -1697,6 +1714,7 @@ def analyze_opportunity_universe_at_position_size(
     position_size_eur: float,
     mandate: TreasuryMandate = MODEL_COMPANY_MANDATE,
     estr_observation: EstrObservation | None = None,
+    ernx_snapshot: OpportunitySnapshot | None = None,
     btf_2027_03_10_snapshot: OpportunitySnapshot | None = None,
     aave_observation: AaveReserveObservation | None = None,
     as_of: str,
@@ -1712,6 +1730,7 @@ def analyze_opportunity_universe_at_position_size(
     opportunities = (
         build_model_company_opportunity_universe(
             estr_observation=estr_observation,
+            ernx_snapshot=ernx_snapshot,
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),
@@ -1731,6 +1750,7 @@ def analyze_opportunity_universe_at_position_size(
         _apply_model_company_freshness_gate(
             candidate=candidate,
             as_of=as_of,
+            ernx_snapshot=ernx_snapshot,
             btf_2027_03_10_snapshot=(
                 btf_2027_03_10_snapshot
             ),

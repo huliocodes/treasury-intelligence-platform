@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
+from html import unescape
+import re
+
+import requests
+
+from treasury_intelligence.persistence.market_evidence_store import (
+    MarketEvidenceRecord,
+)
+
 from treasury_intelligence.models.opportunities import (
     Accessibility,
     AccessRoute,
@@ -43,6 +55,169 @@ ERNX_IBKR_ACCESS = AccessRoute(
     investor_type="corporate",
     jurisdiction="Slovenia",
 )
+
+
+ERNX_SOURCE_URL = (
+    "https://www.ishares.com/uk/individual/en/"
+    "products/327355/"
+    "ishares-ultrashort-bond-ucits-etf"
+)
+
+
+@dataclass(frozen=True)
+class ErnxReturnObservation:
+    observed_at: datetime
+    weighted_average_ytm_pct: float
+    source_url: str
+
+    def __post_init__(self) -> None:
+        if self.observed_at.tzinfo is None:
+            raise ValueError(
+                "observed_at must be timezone-aware."
+            )
+
+        if self.weighted_average_ytm_pct <= 0:
+            raise ValueError(
+                "weighted_average_ytm_pct must be "
+                "greater than zero."
+            )
+
+
+def fetch_ernx_return_observation(
+) -> ErnxReturnObservation:
+    response = requests.get(
+        ERNX_SOURCE_URL,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 "
+                "(Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "Chrome/140 Safari/537.36"
+            ),
+            "Accept-Language": (
+                "en-GB,en;q=0.9"
+            ),
+        },
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    html = unescape(
+        response.text
+    )
+
+    match = re.search(
+        (
+            r'"yieldToWorst":\{'
+            r'.*?'
+            r'"asOfDate":(?P<date>\d{8})'
+            r'.*?'
+            r'"formattedValue":'
+            r'"(?P<formatted>[0-9.]+)%"'
+            r'.*?'
+            r'"value":(?P<value>[0-9.]+)'
+        ),
+        html,
+        flags=re.DOTALL,
+    )
+
+    if match is None:
+        raise RuntimeError(
+            "Unable to locate ERNX Weighted Average "
+            "YTM in the iShares product page."
+        )
+
+    observed_at = datetime.strptime(
+        match.group("date"),
+        "%Y%m%d",
+    ).replace(
+        tzinfo=timezone.utc
+    )
+
+    formatted_value = float(
+        match.group("formatted")
+    )
+
+    numeric_value = float(
+        match.group("value")
+    )
+
+    if (
+        abs(
+            formatted_value
+            - numeric_value
+        )
+        > 1e-9
+    ):
+        raise RuntimeError(
+            "ERNX formatted and numeric YTM values "
+            "do not match."
+        )
+
+    return ErnxReturnObservation(
+        observed_at=observed_at,
+        weighted_average_ytm_pct=(
+            numeric_value
+        ),
+        source_url=ERNX_SOURCE_URL,
+    )
+
+
+def build_ernx_market_evidence_record(
+    *,
+    observation: ErnxReturnObservation,
+    ingestion_run_id: str,
+) -> MarketEvidenceRecord:
+    observed_date = (
+        observation.observed_at
+        .date()
+        .isoformat()
+    )
+
+    return MarketEvidenceRecord(
+        evidence_id=(
+            "ernx_weighted_average_ytm_"
+            f"{observed_date}"
+        ),
+        instrument_id=(
+            ERNX_INSTRUMENT.instrument_id
+        ),
+        market_id=ERNX_MARKET.market_id,
+        access_route_id=(
+            ERNX_IBKR_ACCESS.access_route_id
+        ),
+        evidence_type="market_return",
+        observed_at=observation.observed_at,
+        measure="weighted_average_ytm",
+        numeric_value=Decimal(
+            str(
+                observation
+                .weighted_average_ytm_pct
+            )
+        ),
+        unit="pct",
+        source_reference=(
+            "ishares_ernx_weighted_average_ytm"
+        ),
+        source_name="iShares / BlackRock",
+        source_url=observation.source_url,
+        ingestion_run_id=ingestion_run_id,
+        raw_payload={
+            "ticker": "ERNX",
+            "measure_label": (
+                "Weighted Average YTM"
+            ),
+            "reference_yield_includes_product_fee": (
+                False
+            ),
+            "observed_date": observed_date,
+            "weighted_average_ytm_pct": (
+                observation
+                .weighted_average_ytm_pct
+            ),
+        },
+    )
 
 
 ERNX_ACCESSIBILITY = Accessibility(
